@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.autorizados (
   nome TEXT NOT NULL CHECK (char_length(btrim(nome)) > 0),
   papel TEXT NOT NULL DEFAULT 'membro' CHECK (papel IN ('admin', 'membro')),
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  chave_pix TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   criado_por TEXT,
   atualizado_por TEXT,
@@ -289,6 +290,14 @@ CREATE POLICY "autorizados_update" ON public.autorizados
   FOR UPDATE TO authenticated
   USING (public.eh_admin() AND email <> public.email_atual())
   WITH CHECK (public.eh_admin() AND email <> public.email_atual());
+
+-- Cada membro pode atualizar seus próprios dados (nome, chave_pix)
+DROP POLICY IF EXISTS "autorizados_update_proprio" ON public.autorizados;
+CREATE POLICY "autorizados_update_proprio" ON public.autorizados
+  FOR UPDATE TO authenticated
+  USING (email = public.email_atual())
+  WITH CHECK (email = public.email_atual());
+
 
 DROP POLICY IF EXISTS "autorizados_delete" ON public.autorizados;
 CREATE POLICY "autorizados_delete" ON public.autorizados

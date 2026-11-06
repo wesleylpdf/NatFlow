@@ -8,7 +8,8 @@ import {
   excluirPagamento,
   listarPagamentos,
 } from '@/services/pagamentos'
-import type { Cliente, Compra, Pagamento } from '@/types'
+import { obterPerfilAtual } from '@/services/equipe'
+import type { Cliente, Compra, Pagamento, Autorizado } from '@/types'
 import {
   escaparHTML,
   formatarAutoriaResumida,
@@ -20,7 +21,7 @@ import {
   valorParaInput,
 } from '@/utils/format'
 import { calcularResumo } from '@/utils/saldo'
-import { enviarExtratoWhatsApp } from '@/utils/exportarPdf'
+import { enviarExtratoWhatsApp, enviarLembreteCobrancaWhatsApp } from '@/utils/exportarPdf'
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
@@ -75,11 +76,14 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
   let clientes: Cliente[]
   let compras: Compra[]
   let pagamentos: Pagamento[]
+  let perfil: Autorizado | null = null
+
   try {
-    ;[clientes, compras, pagamentos] = await Promise.all([
+    ;[clientes, compras, pagamentos, perfil] = await Promise.all([
       listarClientes(),
       listarCompras(clienteId),
       listarPagamentos(clienteId),
+      obterPerfilAtual(),
     ])
   } catch (e) {
     container.innerHTML = erroHTML(escaparHTML(mensagemErro(e, 'Erro ao carregar cliente')))
@@ -173,6 +177,13 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         </div>
 
         <div class="flex items-center gap-2 flex-wrap shrink-0">
+          ${
+            saldoDevedor > 0
+              ? `<button id="btn-cobrar-whatsapp" type="button" class="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-sm transition flex items-center gap-1.5" title="Enviar lembrete amigável de cobrança via WhatsApp">
+                   <span>💬 Cobrar Saldo</span>
+                 </button>`
+              : ''
+          }
           <div class="flex items-center gap-2 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-1">
             <button id="btn-exportar-whatsapp" type="button" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm transition flex items-center gap-1.5" title="Enviar extrato para o WhatsApp">
               <span>📤 Enviar Extrato</span>
@@ -212,11 +223,24 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       })
     })
 
+    const btnCobrar = painelEl.querySelector('#btn-cobrar-whatsapp')
+    if (btnCobrar) {
+      btnCobrar.addEventListener('click', () => {
+        enviarLembreteCobrancaWhatsApp(c, saldoDevedor, {
+          chavePix: perfil?.chave_pix,
+          nomeProfissional: perfil?.nome,
+        })
+      })
+    }
+
     painelEl.querySelector('#btn-exportar-whatsapp')!.addEventListener('click', async () => {
       const checkPdf = painelEl.querySelector<HTMLInputElement>('#check-anexar-pdf')
       const incluirPdf = checkPdf ? checkPdf.checked : false
       try {
-        await enviarExtratoWhatsApp(c, compras, pagamentos, incluirPdf)
+        await enviarExtratoWhatsApp(c, compras, pagamentos, incluirPdf, {
+          chavePix: perfil?.chave_pix,
+          nomeProfissional: perfil?.nome,
+        })
       } catch (err) {
         toast.error(mensagemErro(err, 'Erro ao exportar extrato'))
       }
@@ -247,12 +271,14 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
   async function recarregarLancamentos(): Promise<void> {
     try {
-      const [novasCompras, novosPagamentos] = await Promise.all([
+      const [novasCompras, novosPagamentos, novoPerfil] = await Promise.all([
         listarCompras(clienteId),
         listarPagamentos(clienteId),
+        obterPerfilAtual(true),
       ])
       compras = novasCompras
       pagamentos = novosPagamentos
+      perfil = novoPerfil
       renderPainel()
       renderAbas()
     } catch (e) {

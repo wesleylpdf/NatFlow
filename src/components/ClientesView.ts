@@ -10,6 +10,8 @@ import { escaparHTML, formatarAutoriaResumida, formatarMoeda, formatarTelefone }
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
+type FiltroStatus = 'todos' | 'devedores' | 'em_dia'
+
 function normalizarBusca(texto: string): string {
   return texto
     .normalize('NFD')
@@ -28,7 +30,7 @@ function badgeSaldo(saldo: number): string {
 }
 
 /**
- * Tela inicial: cadastro e lista de clientes com saldo devedor e sanfona/accordion.
+ * Tela inicial: cadastro e lista de clientes com saldo devedor, filtros rápidos e sanfona.
  */
 export async function renderClientes(container: HTMLElement): Promise<void> {
   container.innerHTML = loadingHTML()
@@ -42,6 +44,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   }
 
   let busca = ''
+  let filtroStatus: FiltroStatus = 'todos'
 
   const recarregar = async (): Promise<void> => {
     try {
@@ -81,6 +84,19 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           <span id="seta-clientes" class="text-xs text-slate-400 group-hover:text-emerald-500 transition-transform">▼</span>
         </button>
         <div id="corpo-clientes" class="hidden mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 animate-fade-in">
+          <!-- Filtros Rápidos -->
+          <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl mb-3 text-xs font-bold" role="group" aria-label="Filtrar por status">
+            <button type="button" data-filtro="todos" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
+              ⚪ Todos <span id="filtro-count-todos" class="opacity-75 font-semibold text-[11px]"></span>
+            </button>
+            <button type="button" data-filtro="devedores" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
+              🔴 Com Débito <span id="filtro-count-devedores" class="opacity-75 font-semibold text-[11px]"></span>
+            </button>
+            <button type="button" data-filtro="em_dia" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
+              🟢 Em Dia <span id="filtro-count-emdia" class="opacity-75 font-semibold text-[11px]"></span>
+            </button>
+          </div>
+
           <div class="mb-3">
             <input id="busca-cliente" type="search" class="${cls.input}" placeholder="🔍 Buscar cliente por nome ou telefone">
           </div>
@@ -123,6 +139,17 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     }
   })
 
+  // Botões de filtro rápido
+  container.querySelectorAll<HTMLButtonElement>('.btn-filtro').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const f = btn.dataset.filtro as FiltroStatus
+      if (f && f !== filtroStatus) {
+        filtroStatus = f
+        renderLista()
+      }
+    })
+  })
+
   function renderResumo(): void {
     const aReceber = clientes.reduce((acc, c) => acc + (c.saldo_devedor > 0 ? c.saldo_devedor : 0), 0)
     const devedores = clientes.filter(c => c.saldo_devedor > 0).length
@@ -143,9 +170,36 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   }
 
   function renderLista(): void {
+    const totalTodos = clientes.length
+    const totalDevedores = clientes.filter(c => c.saldo_devedor > 0).length
+    const totalEmDia = clientes.filter(c => c.saldo_devedor <= 0).length
+
+    const countTodos = container.querySelector('#filtro-count-todos')
+    const countDevedores = container.querySelector('#filtro-count-devedores')
+    const countEmDia = container.querySelector('#filtro-count-emdia')
+    if (countTodos) countTodos.textContent = `(${totalTodos})`
+    if (countDevedores) countDevedores.textContent = `(${totalDevedores})`
+    if (countEmDia) countEmDia.textContent = `(${totalEmDia})`
+
+    // Estilização do filtro ativo vs inativo
+    container.querySelectorAll<HTMLButtonElement>('.btn-filtro').forEach(btn => {
+      const f = btn.dataset.filtro
+      if (f === filtroStatus) {
+        btn.className = 'btn-filtro py-2 px-1 rounded-xl transition text-center bg-white dark:bg-slate-900 shadow-sm text-slate-900 dark:text-white font-black ring-1 ring-slate-200 dark:ring-slate-700'
+      } else {
+        btn.className = 'btn-filtro py-2 px-1 rounded-xl transition text-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-bold'
+      }
+    })
+
     const termo = normalizarBusca(busca.trim())
     const termoDigitos = busca.replace(/\D/g, '')
+
     const filtrados = clientes.filter(c => {
+      // Regra do filtro rápido
+      if (filtroStatus === 'devedores' && c.saldo_devedor <= 0) return false
+      if (filtroStatus === 'em_dia' && c.saldo_devedor > 0) return false
+
+      // Regra da busca
       if (!termo) return true
       return (
         normalizarBusca(c.nome).includes(termo) ||
@@ -161,8 +215,18 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         </li>`
       return
     }
+
     if (filtrados.length === 0) {
-      listaEl.innerHTML = `<li class="text-center py-6 text-sm text-slate-500 dark:text-slate-400">Nenhum cliente encontrado.</li>`
+      let mensagemVazia = 'Nenhum cliente encontrado.'
+      if (termo) {
+        mensagemVazia = 'Nenhum cliente encontrado para a busca digitada.'
+      } else if (filtroStatus === 'devedores') {
+        mensagemVazia = '🎉 Que ótimo! Nenhum cliente com débito pendente no momento.'
+      } else if (filtroStatus === 'em_dia') {
+        mensagemVazia = 'Nenhum cliente com pagamentos em dia encontrado.'
+      }
+
+      listaEl.innerHTML = `<li class="text-center py-6 text-sm text-slate-500 dark:text-slate-400 font-medium">${escaparHTML(mensagemVazia)}</li>`
       return
     }
 

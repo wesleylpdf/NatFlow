@@ -3,10 +3,16 @@ import { formatarData, formatarDataHora, formatarMoeda } from '@/utils/format'
 import { calcularResumo } from '@/utils/saldo'
 import { toast } from '@/utils/toast'
 
+export interface OpcoesPix {
+  chavePix?: string | null
+  nomeProfissional?: string | null
+}
+
 export async function gerarExtratoPdf(
   cliente: Cliente,
   compras: Compra[],
-  pagamentos: Pagamento[]
+  pagamentos: Pagamento[],
+  opcoes?: OpcoesPix
 ): Promise<File> {
   const { default: jsPDF } = await import('jspdf')
   const doc = new jsPDF({
@@ -112,7 +118,7 @@ export async function gerarExtratoPdf(
   doc.text(`Subtotal Compras: ${formatarMoeda(totalCompras)}`, pageWidth - margin - 3, y, {
     align: 'right',
   })
-  y += 10
+  y += 12
 
   // 4. Tabela de Pagamentos Recebidos (Entradas)
   checarQuebraPagina(20)
@@ -131,7 +137,7 @@ export async function gerarExtratoPdf(
   doc.setTextColor(71, 85, 105)
   doc.text('DATA', margin + 3, y)
   doc.text('DESCRIÇÃO', margin + 30, y)
-  doc.text('VALOR PAGO', pageWidth - margin - 3, y, { align: 'right' })
+  doc.text('VALOR', pageWidth - margin - 3, y, { align: 'right' })
   y += 5
 
   doc.setFont('helvetica', 'normal')
@@ -184,6 +190,34 @@ export async function gerarExtratoPdf(
   doc.setFontSize(14)
   doc.text(formatarMoeda(Math.abs(saldoDevedor)), pageWidth - margin - 6, y + 14, { align: 'right' })
 
+  // 6. Dados para pagamento via PIX (se cadastrado)
+  if (opcoes?.chavePix) {
+    y += 26
+    checarQuebraPagina(20)
+    doc.setFillColor(241, 245, 249) // slate-100
+    doc.setDrawColor(203, 213, 225) // slate-300
+    doc.roundedRect(margin, y, boxWidth, 18, 2, 2, 'FD')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.setTextColor(5, 150, 105)
+    doc.text('DADOS PARA PAGAMENTO VIA PIX', margin + 6, y + 6)
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(30, 41, 59)
+    doc.text(`Chave PIX: ${opcoes.chavePix}`, margin + 6, y + 12)
+
+    if (opcoes.nomeProfissional) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(100, 116, 139)
+      doc.text(`Beneficiário: ${opcoes.nomeProfissional}`, pageWidth - margin - 6, y + 12, {
+        align: 'right',
+      })
+    }
+  }
+
   // Converte para File
   const blob = doc.output('blob')
   const nomeArquivo = `Extrato-${cliente.nome.replace(/\s+/g, '_')}.pdf`
@@ -197,13 +231,14 @@ export async function enviarExtratoWhatsApp(
   cliente: Cliente,
   compras: Compra[],
   pagamentos: Pagamento[],
-  incluirPdf = true
+  incluirPdf = true,
+  opcoes?: OpcoesPix
 ): Promise<void> {
   const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
 
   if (incluirPdf) {
     toast.info('Gerando extrato em PDF...')
-    const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos)
+    const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
 
     // 1. Download do PDF para o dispositivo
     const fileUrl = URL.createObjectURL(pdfFile)
@@ -214,7 +249,7 @@ export async function enviarExtratoWhatsApp(
     linkDownload.click()
     linkDownload.remove()
 
-    // 2. Se o dispositivo suportar Web Share API com arquivos (mobile / WhatsApp direto):
+    // 2. Se o dispositivo suportar Web Share API com arquivos:
     if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
       try {
         await navigator.share({
@@ -225,7 +260,7 @@ export async function enviarExtratoWhatsApp(
         toast.success('Extrato compartilhado com sucesso!')
         return
       } catch {
-        // Caso o usuário cancele o menu de compartilhamento, segue para WhatsApp Web
+        // Segue para WhatsApp Web/App
       }
     }
   }
@@ -257,6 +292,13 @@ export async function enviarExtratoWhatsApp(
     `💵 Total pago: *${formatarBRL(totalPagamentos)}*\n` +
     `📌 ${situacao}`
 
+  if (saldoDevedor > 0 && opcoes?.chavePix) {
+    mensagemTexto += `\n🔑 Chave PIX para pagamento: *${opcoes.chavePix}*`
+    if (opcoes.nomeProfissional) {
+      mensagemTexto += ` (${opcoes.nomeProfissional})`
+    }
+  }
+
   if (incluirPdf) {
     mensagemTexto += `\n\n📄 O arquivo PDF com o extrato detalhado de todos os itens foi gerado. Estou enviando em anexo!`
   }
@@ -266,4 +308,40 @@ export async function enviarExtratoWhatsApp(
 
   window.open(urlWhats, '_blank')
   toast.success(incluirPdf ? 'Extrato PDF baixado e WhatsApp aberto!' : 'WhatsApp aberto com o resumo!')
+}
+
+/**
+ * Envia uma mensagem amigável e direta de lembrete de cobrança no WhatsApp com a chave PIX
+ */
+export function enviarLembreteCobrancaWhatsApp(
+  cliente: Cliente,
+  saldoDevedor: number,
+  opcoes?: OpcoesPix
+): void {
+  const telLimpo = cliente.telefone.replace(/\D/g, '')
+  if (!telLimpo || telLimpo.length < 10) {
+    toast.warning('O cliente não possui telefone válido cadastrado para o WhatsApp.')
+    return
+  }
+
+  const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
+
+  let msg =
+    `Olá, *${cliente.nome}*! Tudo bem? 🌸\n\n` +
+    `Passando para enviar o lembrete do seu saldo em aberto no *NatFlow*:\n\n` +
+    `📌 Valor pendente: *${formatarBRL(saldoDevedor)}*`
+
+  if (opcoes?.chavePix) {
+    msg += `\n🔑 Chave PIX: *${opcoes.chavePix}*`
+    if (opcoes.nomeProfissional) {
+      msg += ` (${opcoes.nomeProfissional})`
+    }
+  }
+
+  msg += `\n\nAssim que realizar o pagamento, me envie o comprovante por aqui, por favor! Qualquer dúvida, estou à disposição. Muito obrigado(a)! ✨`
+
+  const textoMsg = encodeURIComponent(msg)
+  const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
+  window.open(urlWhats, '_blank')
+  toast.success('WhatsApp aberto com lembrete de cobrança!')
 }

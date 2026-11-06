@@ -1,4 +1,5 @@
 import { abrirFormModal, confirmar } from '@/components/Modal'
+import { abrirModalMeuPerfil } from '@/components/Header'
 import {
   adicionarMembro,
   atualizarMembro,
@@ -28,7 +29,7 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
 
   const recarregar = async (): Promise<void> => {
     try {
-      equipe = await listarEquipe()
+      ;[equipe, perfil] = await Promise.all([listarEquipe(), obterPerfilAtual(true)])
       renderLista()
     } catch (e) {
       toast.error(mensagemErro(e, 'Erro ao atualizar equipe'))
@@ -42,20 +43,25 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
           <div>
             <h2 class="font-black text-base text-slate-900 dark:text-white">🛡️ Equipe & Permissões</h2>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Apenas os e-mails listados abaixo conseguem criar conta e acessar os dados dos clientes.
+              Cada membro pode cadastrar sua própria chave PIX para envio automático nas cobranças.
             </p>
           </div>
-          ${
-            souAdmin
-              ? `<button id="btn-novo-membro" class="${cls.btnPrimario} shrink-0">+ Autorizar Membro</button>`
-              : ''
-          }
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-editar-meu-perfil" class="${cls.btnSecundario} text-xs py-2 px-3" title="Editar meu nome e minha chave PIX">
+              🔑 Meu PIX
+            </button>
+            ${
+              souAdmin
+                ? `<button id="btn-novo-membro" class="${cls.btnPrimario} text-xs py-2 px-3.5 shrink-0">+ Autorizar Membro</button>`
+                : ''
+            }
+          </div>
         </div>
 
         ${
           !souAdmin
             ? `<div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-amber-700 dark:text-amber-300 font-semibold mb-4">
-                ℹ️ Você possui perfil de <strong>Membro</strong>. Apenas administradores podem adicionar ou alterar permissões de acesso.
+                ℹ️ Você possui perfil de <strong>Membro</strong>. Você pode configurar sua chave PIX no botão acima. Apenas administradores adicionam novos membros.
                </div>`
             : ''
         }
@@ -67,6 +73,13 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
 
   const listaEl = container.querySelector<HTMLElement>('#lista-equipe')!
   const btnNovo = container.querySelector<HTMLButtonElement>('#btn-novo-membro')
+  const btnMeuPerfil = container.querySelector<HTMLButtonElement>('#btn-editar-meu-perfil')
+
+  if (btnMeuPerfil) {
+    btnMeuPerfil.addEventListener('click', () => {
+      abrirModalMeuPerfil(recarregar)
+    })
+  }
 
   function renderLista(): void {
     if (equipe.length === 0) {
@@ -86,17 +99,24 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
           ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">Ativo</span>`
           : `<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold border border-rose-500/20">Desativado</span>`
 
+        const pixInfo = m.chave_pix
+          ? `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+               <span>🔑 PIX:</span>
+               <span class="font-mono">${escaparHTML(m.chave_pix)}</span>
+             </span>`
+          : `<span class="text-[11px] text-slate-400 dark:text-slate-500 italic">Sem chave PIX</span>`
+
         const acoesAdmin =
           souAdmin && !ehVoce
             ? `
             <button data-toggle-ativo="${m.id}" class="${cls.btnIcone}" title="${m.ativo ? 'Desativar acesso' : 'Reativar acesso'}">
               ${m.ativo ? '⏸️' : '▶️'}
             </button>
-            <button data-editar="${m.id}" class="${cls.btnIcone}" title="Editar papel / nome">✏️</button>
+            <button data-editar="${m.id}" class="${cls.btnIcone}" title="Editar membro">✏️</button>
             <button data-excluir="${m.id}" class="${cls.btnIcone}" title="Remover da equipe">🗑️</button>
           `
             : ehVoce
-              ? `<span class="text-xs text-slate-400 italic px-2">Você</span>`
+              ? `<button data-meu-perfil class="${cls.btnSecundario} text-xs py-1 px-2.5" title="Editar meus dados e Chave PIX">✏️ Editar Meu PIX</button>`
               : ''
 
         return `
@@ -106,9 +126,13 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
                 <span class="font-bold text-sm text-slate-900 dark:text-white truncate">${escaparHTML(m.nome)}</span>
                 ${badgePapel}
                 ${badgeStatus}
+                ${ehVoce ? `<span class="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30">VOCÊ</span>` : ''}
               </div>
               <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">📧 ${escaparHTML(m.email)}</p>
-              <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Autorizado em ${formatarDataHora(m.created_at)}</p>
+              <div class="mt-1 flex items-center gap-2 flex-wrap">
+                ${pixInfo}
+                <span class="text-[10px] text-slate-400 dark:text-slate-500">• Cadastrado em ${formatarDataHora(m.created_at)}</span>
+              </div>
             </div>
             <div class="flex items-center gap-1 shrink-0">
               ${acoesAdmin}
@@ -137,16 +161,24 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
               { valor: 'admin', label: 'Admin (acesso total e gerencia equipe)' },
             ],
           },
+          {
+            nome: 'chave_pix',
+            label: 'Chave PIX (opcional)',
+            tipo: 'text',
+            placeholder: 'CPF, CNPJ, Celular, E-mail ou Chave Aleatória',
+            obrigatorio: false,
+          },
         ],
         textoConfirmar: 'Autorizar',
         onSalvar: async valores => {
           const email = valores.email.trim().toLowerCase()
           const nome = valores.nome.trim()
           const papel = valores.papel.trim().toLowerCase() as PapelUsuario
+          const chave_pix = valores.chave_pix?.trim() || null
           if (papel !== 'admin' && papel !== 'membro') {
             throw new Error('O papel deve ser "admin" ou "membro"')
           }
-          await adicionarMembro({ email, nome, papel })
+          await adicionarMembro({ email, nome, papel, chave_pix })
           toast.success(`Membro ${nome} autorizado com sucesso!`)
           await recarregar()
         },
@@ -156,10 +188,15 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
 
   listaEl.addEventListener('click', async e => {
     const alvo = (e.target as HTMLElement).closest<HTMLElement>(
-      '[data-editar],[data-excluir],[data-toggle-ativo]'
+      '[data-editar],[data-excluir],[data-toggle-ativo],[data-meu-perfil]'
     )
     if (!alvo) return
     e.preventDefault()
+
+    if (alvo.dataset.meuPerfil !== undefined) {
+      abrirModalMeuPerfil(recarregar)
+      return
+    }
 
     const id = alvo.dataset.editar ?? alvo.dataset.excluir ?? alvo.dataset.toggleAtivo!
     const membro = equipe.find(m => m.id === id)
@@ -193,13 +230,25 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
               { valor: 'admin', label: 'Admin (acesso total e gerencia equipe)' },
             ],
           },
+          {
+            nome: 'chave_pix',
+            label: 'Chave PIX',
+            tipo: 'text',
+            valor: membro.chave_pix || '',
+            placeholder: 'CPF, CNPJ, Celular, E-mail ou Chave Aleatória',
+            obrigatorio: false,
+          },
         ],
         onSalvar: async valores => {
           const papel = valores.papel.trim().toLowerCase() as PapelUsuario
           if (papel !== 'admin' && papel !== 'membro') {
             throw new Error('O papel deve ser "admin" ou "membro"')
           }
-          await atualizarMembro(membro.id, { nome: valores.nome.trim(), papel })
+          await atualizarMembro(membro.id, {
+            nome: valores.nome.trim(),
+            papel,
+            chave_pix: valores.chave_pix?.trim() || null,
+          })
           toast.success('Membro atualizado com sucesso!')
           await recarregar()
         },

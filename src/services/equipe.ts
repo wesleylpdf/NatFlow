@@ -33,6 +33,29 @@ export function limparCachePerfil(): void {
 }
 
 /**
+ * Atualiza o próprio perfil (nome e chave PIX) do usuário autenticado
+ */
+export async function atualizarMeuPerfil(dados: {
+  nome?: string
+  chave_pix?: string | null
+}): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !user.email) throw new Error('Usuário não autenticado')
+
+  const payload: Record<string, unknown> = {}
+  if (dados.nome !== undefined) payload.nome = dados.nome.trim()
+  if (dados.chave_pix !== undefined) payload.chave_pix = dados.chave_pix?.trim() || null
+
+  const { error } = await supabase
+    .from('autorizados')
+    .update(payload)
+    .eq('email', user.email.toLowerCase())
+
+  if (error) throw error
+  limparCachePerfil()
+}
+
+/**
  * Lista todos os membros autorizados (ordem de criação)
  */
 export async function listarEquipe(): Promise<Autorizado[]> {
@@ -52,11 +75,13 @@ export async function adicionarMembro(dados: {
   email: string
   nome: string
   papel: PapelUsuario
+  chave_pix?: string | null
 }): Promise<void> {
   const { error } = await supabase.from('autorizados').insert({
     email: dados.email.trim().toLowerCase(),
     nome: dados.nome.trim(),
     papel: dados.papel,
+    chave_pix: dados.chave_pix?.trim() || null,
     ativo: true,
   })
   if (error) throw error
@@ -67,13 +92,19 @@ export async function adicionarMembro(dados: {
  */
 export async function atualizarMembro(
   id: string,
-  dados: { nome?: string; papel?: PapelUsuario; ativo?: boolean }
+  dados: {
+    nome?: string
+    papel?: PapelUsuario
+    ativo?: boolean
+    chave_pix?: string | null
+  }
 ): Promise<void> {
   const { error } = await supabase
     .from('autorizados')
     .update(dados)
     .eq('id', id)
   if (error) throw error
+  limparCachePerfil()
 }
 
 /**
@@ -82,4 +113,5 @@ export async function atualizarMembro(
 export async function removerMembro(id: string): Promise<void> {
   const { error } = await supabase.from('autorizados').delete().eq('id', id)
   if (error) throw error
+  limparCachePerfil()
 }
