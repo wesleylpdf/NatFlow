@@ -4,5 +4,11 @@
 /version.json
   Cache-Control: no-cache
 
+/sw.js
+  Cache-Control: no-cache
+
+/manifest.json
+  Cache-Control: no-cache
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

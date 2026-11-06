@@ -15,6 +15,7 @@ const BUILD_VERSION = pkg.version
  * - Gera dist/version.json com { version, builtAt }
  * - Gera dist/index-<versao>.html
  * - Copia _headers para dist/_headers (garante regras no-cache na hospedagem)
+ * - Injeta versão no sw.js da build
  */
 function versionamentoPlugin() {
   let baseUrl = '/'
@@ -49,6 +50,15 @@ function versionamentoPlugin() {
       // 3. Garante que os cabeçalhos de no-cache sejam publicados
       try {
         copyFileSync(resolve(raizProjeto, '_headers'), resolve(distDir, '_headers'))
+      } catch {
+        // opcional
+      }
+
+      // 4. Injeta a versão no sw.js da build
+      try {
+        const swPath = resolve(distDir, 'sw.js')
+        const swContent = readFileSync(swPath, 'utf-8').replace(/__BUILD_VERSION__/g, BUILD_VERSION)
+        writeFileSync(swPath, swContent)
       } catch {
         // opcional
       }

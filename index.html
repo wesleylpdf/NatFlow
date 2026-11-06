@@ -6,6 +6,11 @@
     <meta name="theme-color" content="#059669">
     <title>NatFlow - Controle Financeiro</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NatFlow">
 
     <!-- Guarda de versão: se este index.html veio do cache do navegador ou CDN
          e já existe uma build mais nova no servidor, recarrega a versão atualizada imediatamente -->
@@ -47,5 +52,12 @@
 <body class="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40 px-3 py-4 sm:px-6 sm:py-6 transition-colors duration-300 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-800 dark:text-slate-100">
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {})
+        })
+      }
+    </script>
 </body>
 </html>
