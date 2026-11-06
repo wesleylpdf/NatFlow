@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857"/>
+      <stop offset="50%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+  <!-- Folhas / Flor de Lótus fluída estilizada -->
+  <path d="M32 10 C20 18 15 30 19 42 C22 49 29 52 32 52 C32 42 36 30 32 10 Z" fill="#ffffff" fill-opacity="0.95"/>
+  <path d="M32 10 C44 18 49 30 45 42 C42 49 35 52 32 52 C32 42 28 30 32 10 Z" fill="#a7f3d0" fill-opacity="0.85"/>
+  <path d="M32 20 C27 30 27 40 32 48 C37 40 37 30 32 20 Z" fill="url(#gold)"/>
+  <circle cx="32" cy="30" r="2.5" fill="#ffffff"/>
+</svg>

@@ -1,0 +1,269 @@
+import type { Cliente, Compra, Pagamento } from '@/types'
+import { formatarData, formatarDataHora, formatarMoeda } from '@/utils/format'
+import { calcularResumo } from '@/utils/saldo'
+import { toast } from '@/utils/toast'
+
+export async function gerarExtratoPdf(
+  cliente: Cliente,
+  compras: Compra[],
+  pagamentos: Pagamento[]
+): Promise<File> {
+  const { default: jsPDF } = await import('jspdf')
+  const doc = new jsPDF({
+    unit: 'mm',
+    format: 'a4',
+  })
+
+  const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const margin = 14
+  let y = 16
+
+  // 1. Cabeçalho estilizado
+  doc.setFillColor(5, 150, 105) // emerald-600
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 22, 3, 3, 'F')
+
+  doc.setTextColor(255, 255, 255)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.text('NatFlow', margin + 6, y + 9)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.text('Extrato Financeiro de Produtos e Pagamentos', margin + 6, y + 16)
+
+  doc.setFontSize(8)
+  const emissaoTexto = `Emissão: ${formatarDataHora(new Date().toISOString())}`
+  doc.text(emissaoTexto, pageWidth - margin - 6, y + 16, { align: 'right' })
+
+  y += 28
+
+  // 2. Dados do Cliente
+  doc.setTextColor(30, 41, 59) // slate-800
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Dados do Cliente', margin, y)
+  y += 6
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.text(`Nome: ${cliente.nome}`, margin, y)
+  doc.text(`Telefone: ${cliente.telefone || 'Não informado'}`, margin + 90, y)
+  y += 8
+
+  // Linha divisória
+  doc.setDrawColor(226, 232, 240)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 8
+
+  // Helper para verificar nova página
+  const checarQuebraPagina = (espacoNecessario: number): void => {
+    if (y + espacoNecessario > 280) {
+      doc.addPage()
+      y = 16
+    }
+  }
+
+  // 3. Tabela de Produtos Comprados (Saídas)
+  checarQuebraPagina(20)
+  doc.setFillColor(225, 29, 72) // rose-600
+  doc.circle(margin + 2, y - 1, 1.8, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(225, 29, 72)
+  doc.text(`Produtos Comprados (${compras.length})`, margin + 6, y)
+  y += 6
+
+  // Cabeçalho da tabela
+  doc.setFillColor(248, 250, 252)
+  doc.rect(margin, y - 4, pageWidth - margin * 2, 7, 'F')
+  doc.setFontSize(8)
+  doc.setTextColor(71, 85, 105)
+  doc.text('DATA', margin + 3, y)
+  doc.text('PRODUTO', margin + 30, y)
+  doc.text('VALOR', pageWidth - margin - 3, y, { align: 'right' })
+  y += 5
+
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(15, 23, 42)
+
+  if (compras.length === 0) {
+    doc.setFontSize(8)
+    doc.setTextColor(100, 116, 139)
+    doc.text('Nenhum produto registrado.', margin + 3, y)
+    y += 6
+  } else {
+    for (const compra of compras) {
+      checarQuebraPagina(8)
+      doc.setFontSize(8)
+      doc.text(formatarData(compra.data), margin + 3, y)
+      const nomeProd = doc.splitTextToSize(compra.produto, 105)
+      doc.text(nomeProd, margin + 30, y)
+      doc.text(formatarMoeda(compra.valor), pageWidth - margin - 3, y, { align: 'right' })
+      y += Math.max(nomeProd.length * 4.5, 6)
+    }
+  }
+
+  // Subtotal de compras
+  checarQuebraPagina(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(225, 29, 72)
+  doc.text(`Subtotal Compras: ${formatarMoeda(totalCompras)}`, pageWidth - margin - 3, y, {
+    align: 'right',
+  })
+  y += 10
+
+  // 4. Tabela de Pagamentos Recebidos (Entradas)
+  checarQuebraPagina(20)
+  doc.setFillColor(5, 150, 105) // emerald-600
+  doc.circle(margin + 2, y - 1, 1.8, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(5, 150, 105)
+  doc.text(`Pagamentos Recebidos (${pagamentos.length})`, margin + 6, y)
+  y += 6
+
+  // Cabeçalho da tabela
+  doc.setFillColor(248, 250, 252)
+  doc.rect(margin, y - 4, pageWidth - margin * 2, 7, 'F')
+  doc.setFontSize(8)
+  doc.setTextColor(71, 85, 105)
+  doc.text('DATA', margin + 3, y)
+  doc.text('DESCRIÇÃO', margin + 30, y)
+  doc.text('VALOR PAGO', pageWidth - margin - 3, y, { align: 'right' })
+  y += 5
+
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(15, 23, 42)
+
+  if (pagamentos.length === 0) {
+    doc.setFontSize(8)
+    doc.setTextColor(100, 116, 139)
+    doc.text('Nenhum pagamento registrado.', margin + 3, y)
+    y += 6
+  } else {
+    for (const pag of pagamentos) {
+      checarQuebraPagina(8)
+      doc.setFontSize(8)
+      doc.text(formatarData(pag.data), margin + 3, y)
+      const desc = doc.splitTextToSize(pag.descricao || 'Pagamento', 105)
+      doc.text(desc, margin + 30, y)
+      doc.text(formatarMoeda(pag.valor), pageWidth - margin - 3, y, { align: 'right' })
+      y += Math.max(desc.length * 4.5, 6)
+    }
+  }
+
+  // Subtotal de pagamentos
+  checarQuebraPagina(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(5, 150, 105)
+  doc.text(`Subtotal Pago: ${formatarMoeda(totalPagamentos)}`, pageWidth - margin - 3, y, {
+    align: 'right',
+  })
+  y += 12
+
+  // 5. Quadro Resumo do Saldo Devedor
+  checarQuebraPagina(30)
+  const boxWidth = pageWidth - margin * 2
+  const isDevedor = saldoDevedor > 0
+  const boxColor = isDevedor ? [255, 241, 242] : [240, 253, 244] // rose-50 ou emerald-50
+  const borderCol = isDevedor ? [244, 63, 94] : [16, 185, 129]
+
+  doc.setFillColor(boxColor[0], boxColor[1], boxColor[2])
+  doc.setDrawColor(borderCol[0], borderCol[1], borderCol[2])
+  doc.roundedRect(margin, y, boxWidth, 22, 2, 2, 'FD')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(isDevedor ? 225 : 5, isDevedor ? 29 : 150, isDevedor ? 72 : 105)
+  const rotulo = isDevedor ? 'TOTAL SALDO DEVEDOR' : saldoDevedor < 0 ? 'CRÉDITO DO CLIENTE' : 'SALDO EM DIA'
+  doc.text(rotulo, margin + 6, y + 13)
+
+  doc.setFontSize(14)
+  doc.text(formatarMoeda(Math.abs(saldoDevedor)), pageWidth - margin - 6, y + 14, { align: 'right' })
+
+  // Converte para File
+  const blob = doc.output('blob')
+  const nomeArquivo = `Extrato-${cliente.nome.replace(/\s+/g, '_')}.pdf`
+  return new File([blob], nomeArquivo, { type: 'application/pdf' })
+}
+
+/**
+ * Faz o download do PDF (se solicitado) e aciona o WhatsApp com mensagem estruturada
+ */
+export async function enviarExtratoWhatsApp(
+  cliente: Cliente,
+  compras: Compra[],
+  pagamentos: Pagamento[],
+  incluirPdf = true
+): Promise<void> {
+  const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
+
+  if (incluirPdf) {
+    toast.info('Gerando extrato em PDF...')
+    const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos)
+
+    // 1. Download do PDF para o dispositivo
+    const fileUrl = URL.createObjectURL(pdfFile)
+    const linkDownload = document.createElement('a')
+    linkDownload.href = fileUrl
+    linkDownload.download = pdfFile.name
+    document.body.appendChild(linkDownload)
+    linkDownload.click()
+    linkDownload.remove()
+
+    // 2. Se o dispositivo suportar Web Share API com arquivos (mobile / WhatsApp direto):
+    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      try {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Extrato NatFlow - ${cliente.nome}`,
+          text: `Olá, ${cliente.nome}! Segue o extrato detalhado das suas compras e pagamentos no NatFlow.`,
+        })
+        toast.success('Extrato compartilhado com sucesso!')
+        return
+      } catch {
+        // Caso o usuário cancele o menu de compartilhamento, segue para WhatsApp Web
+      }
+    }
+  }
+
+  // 3. Monta mensagem formatada para o WhatsApp
+  const telLimpo = cliente.telefone.replace(/\D/g, '')
+  if (!telLimpo || telLimpo.length < 10) {
+    if (incluirPdf) {
+      toast.warning('O PDF foi baixado, mas o cliente não possui telefone válido para WhatsApp.')
+    } else {
+      toast.warning('O cliente não possui telefone válido cadastrado para o WhatsApp.')
+    }
+    return
+  }
+
+  // Normaliza espaços monetários para evitar artefatos de codificação em URLs
+  const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
+
+  const situacao =
+    saldoDevedor > 0
+      ? `Saldo devedor: *${formatarBRL(saldoDevedor)}*`
+      : saldoDevedor < 0
+        ? `Crédito em haver: *${formatarBRL(-saldoDevedor)}*`
+        : `Conta *em dia*! (R$ 0,00)`
+
+  let mensagemTexto =
+    `Olá, *${cliente.nome}*! Segue o resumo financeiro atualizado da sua conta no *NatFlow*:\n\n` +
+    `🛍️ Total de produtos comprados: *${formatarBRL(totalCompras)}*\n` +
+    `💵 Total pago: *${formatarBRL(totalPagamentos)}*\n` +
+    `📌 ${situacao}`
+
+  if (incluirPdf) {
+    mensagemTexto += `\n\n📄 O arquivo PDF com o extrato detalhado de todos os itens foi gerado. Estou enviando em anexo!`
+  }
+
+  const textoMsg = encodeURIComponent(mensagemTexto)
+  const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
+
+  window.open(urlWhats, '_blank')
+  toast.success(incluirPdf ? 'Extrato PDF baixado e WhatsApp aberto!' : 'WhatsApp aberto com o resumo!')
+}

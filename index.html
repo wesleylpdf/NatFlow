@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-100 dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#059669">
+    <title>NatFlow - Controle Financeiro</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+    <!-- Guarda de versão: se este index.html veio do cache do navegador ou CDN
+         e já existe uma build mais nova no servidor, recarrega a versão atualizada imediatamente -->
+    <script>
+      (function () {
+        var versaoAtual = '__BUILD_VERSION__'
+        var base = '__BUILD_BASE__'
+        if (versaoAtual.indexOf('__') === 0) return // modo dev
+
+        var url = new URL(window.location.href)
+        if (url.searchParams.get('v') === versaoAtual) return
+
+        fetch(base + 'version.json?_=' + Date.now(), { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null })
+          .then(function (dados) {
+            if (!dados || !dados.version || dados.version === versaoAtual) return
+            try {
+              localStorage.setItem('natflow_ultima_versao', versaoAtual)
+            } catch (e) {}
+            url.searchParams.set('v', dados.version)
+            url.searchParams.set('_t', String(Date.now()))
+            window.location.replace(url.toString())
+          })
+          .catch(function () {})
+      })()
+    </script>
+
+    <!-- Aplica o tema salvo antes do primeiro paint para evitar flash de tela branca -->
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('natflow_tema') === 'light') {
+            document.documentElement.classList.remove('dark')
+          }
+        } catch (e) {}
+      })()
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40 px-3 py-4 sm:px-6 sm:py-6 transition-colors duration-300 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-800 dark:text-slate-100">
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

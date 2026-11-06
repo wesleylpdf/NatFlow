@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857"/>
+      <stop offset="50%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#a7f3d0" stop-opacity="0.75"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#064e3b" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Container arredondado suave com sombra -->
+  <rect width="240" height="240" rx="54" fill="url(#bgGrad)" filter="url(#shadow)"/>
+
+  <!-- Borda interna delicada de vidro -->
+  <rect x="3" y="3" width="234" height="234" rx="51" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
+
+  <!-- Pétala / Folha estilizada da esquerda (Saúde & Beleza natural) -->
+  <path d="M120 45 C75 75 60 120 75 160 C85 186 110 195 120 195 C120 160 135 120 120 45 Z" fill="url(#leafGrad)"/>
+
+  <!-- Pétala / Folha estilizada da direita com fluxo (Flow) -->
+  <path d="M120 45 C165 75 180 120 165 160 C155 186 130 195 120 195 C120 160 105 120 120 45 Z" fill="url(#leafGrad)" fill-opacity="0.85"/>
+
+  <!-- Centro fluído e radiante com detalhe dourado -->
+  <path d="M120 75 C102 110 102 145 120 178 C138 145 138 110 120 75 Z" fill="url(#goldGrad)"/>
+
+  <!-- Ponto de luz / flor central -->
+  <circle cx="120" cy="115" r="7" fill="#ffffff" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.2))"/>
+
+  <!-- Arco de fluxo elegante (NatFlow) -->
+  <path d="M55 145 C65 190 175 190 185 145" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 8"/>
+</svg>
