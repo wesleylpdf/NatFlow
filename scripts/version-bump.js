@@ -2,14 +2,17 @@
  * Script de versionamento de build do NatFlow.
  *
  * Formato da versão: 1.X.X
- *   - grande (minor): incrementa o primeiro X (1.0.0 → 1.1.0) e zera o segundo X.
- *   - pequena (patch): incrementa o segundo X (1.0.0 → 1.0.1).
+ *   - grande (minor): incrementa o primeiro X (1.1.0 → 1.2.0) e zera o patch.
+ *   - pequena (patch): incrementa o segundo X (1.2.0 → 1.2.1).
+ *   - build: se acabou de receber um version:grande (patch 0 e sem build gerado),
+ *     mantém a versão grande; caso contrário, incrementa pequena automaticamente.
  *
  * Atualiza package.json antes do build. A versão é injetada dinamicamente
  * pelo vite.config.ts via __BUILD_VERSION__ e publicada em version.json.
  */
 
 import { readFile, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = resolve(process.cwd())
@@ -35,8 +38,18 @@ export async function bump(tipo) {
   let proximo
   if (tipo === 'grande' || tipo === 'major') {
     proximo = { major, minor: minor + 1, patch: 0 }
+  } else if (tipo === 'build' || tipo === 'auto') {
+    // Se acabou de ser setada uma versão grande (patch 0) e ainda não tem o index-<versao>.html no dist,
+    // preserva a versão grande atual para este primeiro build.
+    const indexVersaoPath = resolve(ROOT, 'dist', `index-${pkg.version}.html`)
+    if (patch === 0 && !existsSync(indexVersaoPath)) {
+      console.log(`[NatFlow] Versão mantida para build inicial: ${pkg.version}`)
+      return
+    }
+    // Caso padrão em build: incrementa versão pequena (patch)
+    proximo = { major, minor, patch: patch + 1 }
   } else {
-    // pequena / patch (padrão)
+    // pequena / patch
     proximo = { major, minor, patch: patch + 1 }
   }
 
@@ -48,8 +61,8 @@ export async function bump(tipo) {
 }
 
 const tipo = process.argv[2] || 'pequena'
-if (!['grande', 'major', 'pequena', 'minor', 'patch'].includes(tipo)) {
-  console.error('Uso: node scripts/version-bump.js <pequena|grande>')
+if (!['grande', 'major', 'pequena', 'minor', 'patch', 'build', 'auto'].includes(tipo)) {
+  console.error('Uso: node scripts/version-bump.js <pequena|grande|build>')
   process.exit(1)
 }
 
