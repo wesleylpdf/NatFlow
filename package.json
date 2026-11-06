@@ -1,12 +1,12 @@
 {
   "name": "natflow",
-  "version": "1.0.20",
+  "version": "1.1.0",
   "private": true,
   "description": "NatFlow - controle financeiro de clientes de produtos de beleza e saúde",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run version:pequena && tsc && vite build",
+    "build": "tsc && vite build",
     "version:pequena": "node scripts/version-bump.js pequena",
     "version:grande": "node scripts/version-bump.js grande",
     "preview": "vite preview",
