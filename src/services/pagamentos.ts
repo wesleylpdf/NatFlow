@@ -18,14 +18,27 @@ export async function listarPagamentos(clienteId: string): Promise<Pagamento[]> 
 }
 
 export async function criarPagamento(dados: NovoPagamento): Promise<void> {
-  const { error } = await supabase.from('pagamentos').insert({
+  const payload: Record<string, unknown> = {
     cliente_id: dados.cliente_id,
     valor: dados.valor,
     data: dados.data,
     descricao: dados.descricao?.trim() || null,
-    forma_pagamento: dados.forma_pagamento || 'pix',
-  })
-  if (error) throw error
+  }
+  if (dados.forma_pagamento) {
+    payload.forma_pagamento = dados.forma_pagamento
+  }
+
+  const { error } = await supabase.from('pagamentos').insert(payload)
+  if (error) {
+    // Fallback caso a coluna forma_pagamento ainda não exista no Supabase
+    if (error.code === '42703') {
+      delete payload.forma_pagamento
+      const { error: retryError } = await supabase.from('pagamentos').insert(payload)
+      if (retryError) throw retryError
+      return
+    }
+    throw error
+  }
 }
 
 export async function atualizarPagamento(
@@ -45,7 +58,19 @@ export async function atualizarPagamento(
     .from('pagamentos')
     .update(payload)
     .eq('id', id)
-  if (error) throw error
+  if (error) {
+    // Fallback caso a coluna forma_pagamento ainda não exista no Supabase
+    if (error.code === '42703') {
+      delete payload.forma_pagamento
+      const { error: retryError } = await supabase
+        .from('pagamentos')
+        .update(payload)
+        .eq('id', id)
+      if (retryError) throw retryError
+      return
+    }
+    throw error
+  }
 }
 
 export async function excluirPagamento(id: string): Promise<void> {

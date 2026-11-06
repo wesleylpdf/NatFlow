@@ -42,14 +42,6 @@ function badgeSaldo(saldo: number): string {
 export async function renderClientes(container: HTMLElement): Promise<void> {
   container.innerHTML = loadingHTML()
 
-  let clientes: ClienteComSaldo[]
-  try {
-    clientes = await listarClientesComSaldo()
-  } catch (e) {
-    container.innerHTML = erroHTML(escaparHTML(mensagemErro(e, 'Erro ao carregar clientes')))
-    return
-  }
-
   // Controle de período financeiro
   const dataHoje = new Date()
   let periodoTipo: 'mes' | 'tudo' = 'mes'
@@ -65,6 +57,24 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     quantidadeVendas: 0,
   }
 
+  let clientes: ClienteComSaldo[]
+  try {
+    const [listaClientes, resumoInicial] = await Promise.all([
+      listarClientesComSaldo(),
+      obterResumoFinanceiro({ ano: periodoAno, mes: periodoMes }),
+    ])
+    clientes = listaClientes
+    resumoFin = resumoInicial
+  } catch (e) {
+    // Se falhar o resumo, tenta pelo menos os clientes
+    try {
+      clientes = await listarClientesComSaldo()
+    } catch (errClientes) {
+      container.innerHTML = erroHTML(escaparHTML(mensagemErro(errClientes, 'Erro ao carregar clientes')))
+      return
+    }
+  }
+
   let busca = ''
   let filtroStatus: FiltroStatus = 'todos'
 
@@ -75,9 +85,11 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           ? { tudo: true }
           : { ano: periodoAno, mes: periodoMes }
       )
-      renderResumo()
     } catch (e) {
       console.warn('Erro ao obter resumo financeiro:', e)
+      toast.error(mensagemErro(e, 'Erro ao carregar resumo financeiro'))
+    } finally {
+      renderResumo()
     }
   }
 
@@ -174,7 +186,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     }
   })
 
-  // Botões de filtro rápido da lista
+  // Botões de filtro rápido da lista de clientes
   container.querySelectorAll<HTMLButtonElement>('.btn-filtro').forEach(btn => {
     btn.addEventListener('click', () => {
       const f = btn.dataset.filtro as FiltroStatus
@@ -183,6 +195,47 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         renderLista()
       }
     })
+  })
+
+  // Event delegation nos botões de período do resumo (nunca se perde)
+  resumoEl.addEventListener('click', async e => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-acao]')
+    if (!btn) return
+    const acao = btn.dataset.acao
+
+    if (acao === 'mes-anterior') {
+      periodoTipo = 'mes'
+      if (periodoMes === 1) {
+        periodoMes = 12
+        periodoAno--
+      } else {
+        periodoMes--
+      }
+      await atualizarResumoFinanceiro()
+    } else if (acao === 'mes-proximo') {
+      periodoTipo = 'mes'
+      if (periodoMes === 12) {
+        periodoMes = 1
+        periodoAno++
+      } else {
+        periodoMes++
+      }
+      await atualizarResumoFinanceiro()
+    } else if (acao === 'periodo-atual') {
+      periodoTipo = 'mes'
+      periodoAno = dataHoje.getFullYear()
+      periodoMes = dataHoje.getMonth() + 1
+      await atualizarResumoFinanceiro()
+    } else if (acao === 'periodo-anterior') {
+      periodoTipo = 'mes'
+      const ant = new Date(dataHoje.getFullYear(), dataHoje.getMonth() - 1, 1)
+      periodoAno = ant.getFullYear()
+      periodoMes = ant.getMonth() + 1
+      await atualizarResumoFinanceiro()
+    } else if (acao === 'periodo-tudo') {
+      periodoTipo = 'tudo'
+      await atualizarResumoFinanceiro()
+    }
   })
 
   function renderResumo(): void {
@@ -218,24 +271,24 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         <div class="flex items-center justify-between sm:justify-start gap-2">
           <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold uppercase tracking-widest">Resumo Financeiro</span>
           <div class="flex items-center gap-1 bg-slate-100 dark:bg-white/10 rounded-xl px-1.5 py-0.5">
-            <button id="btn-mes-anterior" type="button" class="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-emerald-500 rounded-lg transition" title="Mês anterior">◀</button>
+            <button data-acao="mes-anterior" type="button" class="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-emerald-500 rounded-lg transition active:scale-95" title="Mês anterior">◀</button>
             <span id="rotulo-mes-ano" class="text-xs font-black text-slate-900 dark:text-white px-1 whitespace-nowrap">${escaparHTML(rotuloPeriodo)}</span>
-            <button id="btn-mes-proximo" type="button" class="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-emerald-500 rounded-lg transition" title="Próximo mês">▶</button>
+            <button data-acao="mes-proximo" type="button" class="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-emerald-500 rounded-lg transition active:scale-95" title="Próximo mês">▶</button>
           </div>
         </div>
 
         <div class="flex items-center gap-1 text-[11px] font-bold" role="group">
-          <button id="btn-p-atual" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition ${
+          <button data-acao="periodo-atual" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition active:scale-95 ${
             ehMesAtual
               ? 'bg-emerald-600 text-white font-black shadow-sm'
               : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
           }">Este Mês</button>
-          <button id="btn-p-anterior" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition ${
+          <button data-acao="periodo-anterior" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition active:scale-95 ${
             ehMesAnterior
               ? 'bg-emerald-600 text-white font-black shadow-sm'
               : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
           }">Mês Anterior</button>
-          <button id="btn-p-tudo" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition ${
+          <button data-acao="periodo-tudo" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition active:scale-95 ${
             periodoTipo === 'tudo'
               ? 'bg-emerald-600 text-white font-black shadow-sm'
               : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -300,49 +353,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         </div>
       </div>
     `
-
-    // Eventos dos controles de período
-    resumoEl.querySelector('#btn-mes-anterior')?.addEventListener('click', async () => {
-      periodoTipo = 'mes'
-      if (periodoMes === 1) {
-        periodoMes = 12
-        periodoAno--
-      } else {
-        periodoMes--
-      }
-      await atualizarResumoFinanceiro()
-    })
-
-    resumoEl.querySelector('#btn-mes-proximo')?.addEventListener('click', async () => {
-      periodoTipo = 'mes'
-      if (periodoMes === 12) {
-        periodoMes = 1
-        periodoAno++
-      } else {
-        periodoMes++
-      }
-      await atualizarResumoFinanceiro()
-    })
-
-    resumoEl.querySelector('#btn-p-atual')?.addEventListener('click', async () => {
-      periodoTipo = 'mes'
-      periodoAno = dataHoje.getFullYear()
-      periodoMes = dataHoje.getMonth() + 1
-      await atualizarResumoFinanceiro()
-    })
-
-    resumoEl.querySelector('#btn-p-anterior')?.addEventListener('click', async () => {
-      periodoTipo = 'mes'
-      const ant = new Date(dataHoje.getFullYear(), dataHoje.getMonth() - 1, 1)
-      periodoAno = ant.getFullYear()
-      periodoMes = ant.getMonth() + 1
-      await atualizarResumoFinanceiro()
-    })
-
-    resumoEl.querySelector('#btn-p-tudo')?.addEventListener('click', async () => {
-      periodoTipo = 'tudo'
-      await atualizarResumoFinanceiro()
-    })
   }
 
   function renderLista(): void {
@@ -495,7 +505,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
   renderResumo()
   renderLista()
-  await atualizarResumoFinanceiro()
 }
 
 /** Abre o modal de edição de cliente (usado na lista e na tela do cliente). */
