@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#059669">
+    <meta name="theme-color" content="#020617">
     <title>NatFlow - Controle Financeiro</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="manifest" href="/manifest.json">
@@ -38,12 +38,18 @@
       })()
     </script>
 
-    <!-- Aplica o tema salvo antes do primeiro paint para evitar flash de tela branca -->
+    <!-- Aplica o tema salvo antes do primeiro paint para evitar flash de tela branca e sincroniza a barra do sistema com a cor de fundo -->
     <script>
       (function () {
         try {
-          if (localStorage.getItem('natflow_tema') === 'light') {
+          var tema = localStorage.getItem('natflow_tema')
+          var metaTheme = document.querySelector('meta[name="theme-color"]')
+          if (tema === 'light') {
             document.documentElement.classList.remove('dark')
+            if (metaTheme) metaTheme.setAttribute('content', '#f1f5f9')
+          } else {
+            document.documentElement.classList.add('dark')
+            if (metaTheme) metaTheme.setAttribute('content', '#020617')
           }
         } catch (e) {}
       })()

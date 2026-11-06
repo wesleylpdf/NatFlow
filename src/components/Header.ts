@@ -2,6 +2,7 @@ import { logout } from '@/hooks/useAuth'
 import { obterPerfilAtual, limparCachePerfil } from '@/services/equipe'
 import { escaparHTML } from '@/utils/format'
 import { toast, mensagemErro } from '@/utils/toast'
+import { sincronizarBarraSistema } from '@/utils/ui'
 
 const CHAVE_TEMA = 'natflow_tema'
 
@@ -84,6 +85,7 @@ export async function criarHeader(container: HTMLElement, email: string): Promis
     </header>
   `
 
+  sincronizarBarraSistema()
   atualizarIconeTema(container)
   atualizarLinksNavegacao(container)
 
@@ -96,6 +98,7 @@ export async function criarHeader(container: HTMLElement, email: string): Promis
     } catch {
       // ignora erro de storage
     }
+    sincronizarBarraSistema(escuro)
     atualizarIconeTema(container)
   })
 

@@ -35,3 +35,26 @@ export function erroHTML(mensagem: string): string {
     </div>
   `
 }
+
+export const COR_TEMA_ESCURO = '#020617'
+export const COR_TEMA_CLARO = '#f1f5f9'
+
+/**
+ * Atualiza a meta tag theme-color para sincronizar a barra de status do sistema
+ * (Android / PWA / navegadores mobile) com a cor de fundo do tema ativo.
+ */
+export function sincronizarBarraSistema(escuro?: boolean): void {
+  const isDark =
+    typeof escuro === 'boolean'
+      ? escuro
+      : document.documentElement.classList.contains('dark')
+
+  const cor = isDark ? COR_TEMA_ESCURO : COR_TEMA_CLARO
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+  if (!meta) {
+    meta = document.createElement('meta')
+    meta.name = 'theme-color'
+    document.head.appendChild(meta)
+  }
+  meta.setAttribute('content', cor)
+}
