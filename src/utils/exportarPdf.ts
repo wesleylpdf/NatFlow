@@ -4,6 +4,20 @@ import { calcularResumo } from '@/utils/saldo'
 import { toast } from '@/utils/toast'
 import { criarOverlay } from '@/components/Modal'
 
+let promessaJsPdf: Promise<typeof import('jspdf')> | null = null
+
+function obterJsPdf(): Promise<typeof import('jspdf')> {
+  if (!promessaJsPdf) {
+    promessaJsPdf = import('jspdf')
+  }
+  return promessaJsPdf
+}
+
+// Inicia pré-carregamento imediato em segundo plano para não consumir a ativação do usuário
+if (typeof window !== 'undefined') {
+  void obterJsPdf()
+}
+
 export interface OpcoesPix {
   chavePix?: string | null
   nomeProfissional?: string | null
@@ -15,7 +29,7 @@ export async function gerarExtratoPdf(
   pagamentos: Pagamento[],
   opcoes?: OpcoesPix
 ): Promise<File> {
-  const { default: jsPDF } = await import('jspdf')
+  const { default: jsPDF } = await obterJsPdf()
   const doc = new jsPDF({
     unit: 'mm',
     format: 'a4',
@@ -224,10 +238,13 @@ export async function gerarExtratoPdf(
     }
   }
 
-  // Converte para File
+  // Converte para File com lastModified (essencial para compatibilidade com WebKit / iOS Safari)
   const blob = doc.output('blob')
   const nomeArquivo = `Extrato-${cliente.nome.replace(/\s+/g, '_')}.pdf`
-  return new File([blob], nomeArquivo, { type: 'application/pdf' })
+  return new File([blob], nomeArquivo, {
+    type: 'application/pdf',
+    lastModified: Date.now(),
+  })
 }
 
 /**
@@ -292,7 +309,7 @@ export async function baixarExtratoPdf(
 
 /**
  * Compartilha o arquivo PDF diretamente pela folha nativa do celular (Android/iOS)
- * e copia o texto do resumo para a Área de Transferência.
+ * ou realiza o download caso o navegador não suporte Web Share API com arquivos.
  */
 export async function compartilharExtratoPdfNativo(
   cliente: Cliente,
@@ -302,41 +319,38 @@ export async function compartilharExtratoPdfNativo(
 ): Promise<boolean> {
   toast.info('Gerando extrato em PDF...')
   const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
-  const mensagemTexto = montarTextoResumoExtrato(cliente, compras, pagamentos, opcoes)
 
-  // O WhatsApp descarta legendas de documentos PDF na Intent do sistema operacional.
-  // Por isso, copiamos automaticamente o texto para a Área de Transferência para que o usuário
-  // possa colar com 1 toque caso escolha o WhatsApp na folha de compartilhamento.
-  let copiouTexto = false
-  try {
-    if (navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(mensagemTexto)
-      copiouTexto = true
-    }
-  } catch {
-    // clipboard opcional
+  // ATENÇÃO CRÍTICA DE COMPATIBILIDADE:
+  // 1. O objeto deve conter APENAS files e title. NUNCA misturar 'text' junto com 'files',
+  //    pois o Android e iOS rejeitam o compartilhamento misto de binário + texto com TypeError.
+  // 2. NUNCA chamar APIs assíncronas concorrentes como clipboard antes do share,
+  //    pois elas consomem a "user activation" e fazem o navigator.share falhar com NotAllowedError.
+  const dadosShare: ShareData = {
+    files: [pdfFile],
+    title: `Extrato NatFlow - ${cliente.nome}`,
   }
 
-  // Tenta compartilhamento nativo no celular (Android / iOS)
-  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+  const suportaShare =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function' &&
+    navigator.canShare(dadosShare)
+
+  if (suportaShare) {
     try {
-      await navigator.share({
-        files: [pdfFile],
-        title: `Extrato NatFlow - ${cliente.nome}`,
-        text: mensagemTexto,
-      })
-      if (copiouTexto) {
-        toast.info('📋 Resumo copiado! Se enviou pelo WhatsApp, basta colar a mensagem no chat.')
-      } else {
-        toast.success('Extrato compartilhado com sucesso!')
-      }
+      await navigator.share(dadosShare)
+      toast.success('Extrato compartilhado com sucesso!')
       return true
     } catch (err: unknown) {
       if ((err as Error)?.name === 'AbortError') {
-        return false // Usuário apenas cancelou o menu
+        // Usuário apenas cancelou o menu nativo
+        return false
       }
       console.warn('[WebShare] Erro no compartilhamento nativo:', err)
+      toast.warning('Não foi possível abrir o compartilhamento. Baixando arquivo...')
     }
+  } else {
+    toast.info('Seu navegador não suporta compartilhamento direto de arquivos. Baixando PDF...')
   }
 
   // Fallback: Download do PDF no aparelho/computador
@@ -489,19 +503,41 @@ export function abrirModalOpcoesExtrato(
     if (e.target === overlay) fechar()
   })
 
-  overlay.querySelector('#btn-extrato-whats-direto')?.addEventListener('click', () => {
-    fechar()
-    void enviarExtratoWhatsApp(cliente, compras, pagamentos, true, opcoes)
+  const btnShare = overlay.querySelector<HTMLButtonElement>('#btn-extrato-share-nativo')
+  btnShare?.addEventListener('click', async () => {
+    btnShare.disabled = true
+    btnShare.innerHTML = `
+      <span class="text-2xl shrink-0 animate-spin">⏳</span>
+      <div class="min-w-0 flex-1">
+        <span class="font-black text-xs sm:text-sm text-slate-900 dark:text-white">Abrindo compartilhamento...</span>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Gerando PDF e acionando o menu do celular...</p>
+      </div>
+    `
+    try {
+      await compartilharExtratoPdfNativo(cliente, compras, pagamentos, opcoes)
+    } finally {
+      fechar()
+    }
   })
 
-  overlay.querySelector('#btn-extrato-share-nativo')?.addEventListener('click', () => {
-    fechar()
-    void compartilharExtratoPdfNativo(cliente, compras, pagamentos, opcoes)
+  const btnWhats = overlay.querySelector<HTMLButtonElement>('#btn-extrato-whats-direto')
+  btnWhats?.addEventListener('click', async () => {
+    btnWhats.disabled = true
+    try {
+      await enviarExtratoWhatsApp(cliente, compras, pagamentos, true, opcoes)
+    } finally {
+      fechar()
+    }
   })
 
-  overlay.querySelector('#btn-extrato-apenas-baixar')?.addEventListener('click', () => {
-    fechar()
-    void baixarExtratoPdf(cliente, compras, pagamentos, opcoes)
+  const btnBaixar = overlay.querySelector<HTMLButtonElement>('#btn-extrato-apenas-baixar')
+  btnBaixar?.addEventListener('click', async () => {
+    btnBaixar.disabled = true
+    try {
+      await baixarExtratoPdf(cliente, compras, pagamentos, opcoes)
+    } finally {
+      fechar()
+    }
   })
 }
 
