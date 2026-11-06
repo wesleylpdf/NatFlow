@@ -9,6 +9,7 @@ import {
   listarPagamentos,
 } from '@/services/pagamentos'
 import { obterPerfilAtual } from '@/services/equipe'
+import { obterSugestoesCatalogo } from '@/services/catalogo'
 import type { Cliente, Compra, Pagamento, Autorizado } from '@/types'
 import {
   escaparHTML,
@@ -17,6 +18,7 @@ import {
   formatarMoeda,
   hojeISO,
   linkWhatsApp,
+  obterInfoFormaPagamento,
   parseValor,
   valorParaInput,
 } from '@/utils/format'
@@ -50,7 +52,7 @@ function ordenarItens<T extends { data: string; valor: number; created_at?: stri
   return [...itens].sort((a, b) => {
     switch (ordem) {
       case 'data-asc':
-        return a.data.localeCompare(b.data)
+        return a.data.localeCompare(a.data)
       case 'data-desc':
         return b.data.localeCompare(a.data)
       case 'valor-asc':
@@ -139,7 +141,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     window.location.hash = `#/cliente/${seletor.value}`
   })
 
-  // ---------- Painel com saldo, autoria e botão de extrato WhatsApp ----------
+  // ---------- Painel com saldo, autoria e botões WhatsApp ----------
   function renderPainel(): void {
     const c = cliente!
     const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
@@ -158,92 +160,84 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
            title="Abrir WhatsApp do cliente"
            aria-label="Abrir WhatsApp">
           <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+            <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2M12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.16 12.04 20.16C10.66 20.16 9.3 19.8 8.1 19.11L7.81 18.94L4.7 19.76L5.53 16.73L5.34 16.43C4.56 15.19 4.14 13.57 4.14 11.92C4.15 7.38 7.84 3.67 12.05 3.67M9.54 7.39C9.37 7.39 9.1 7.45 8.87 7.7C8.63 7.96 7.96 8.59 7.96 9.87C7.96 11.15 8.89 12.39 9.02 12.56C9.15 12.73 10.82 15.31 13.4 16.42C14.02 16.68 14.5 16.84 14.88 16.96C15.5 17.16 16.06 17.13 16.51 17.06C17.01 16.99 18.06 16.43 18.28 15.81C18.5 15.19 18.5 14.65 18.43 14.54C18.37 14.43 18.19 14.37 17.92 14.23C17.65 14.1 16.36 13.47 16.12 13.38C15.88 13.29 15.71 13.25 15.53 13.51C15.36 13.78 14.86 14.37 14.71 14.54C14.56 14.71 14.41 14.73 14.14 14.6C13.87 14.46 13.01 14.18 11.99 13.27C11.19 12.56 10.65 11.68 10.49 11.41C10.34 11.15 10.47 11 10.61 10.87C10.73 10.75 10.87 10.56 11.01 10.4C11.15 10.23 11.2 10.11 11.29 9.93C11.38 9.75 11.33 9.6 11.26 9.47C11.2 9.34 10.69 8.08 10.48 7.57C10.27 7.07 10.06 7.14 9.9 7.13C9.74 7.12 9.54 7.39 9.54 7.39Z"/>
           </svg>
-          <span>${escaparHTML(c.telefone)}</span>
+          ${escaparHTML(c.telefone)}
         </a>`
-      : `<span class="shrink-0 text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>`
+      : `<span class="text-xs text-slate-400 dark:text-slate-500">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>`
+
+    // Botão de Cobrança rápida via WhatsApp (exibido apenas quando cliente deve)
+    const btnCobrarWhatsApp =
+      saldoDevedor > 0
+        ? `<button id="btn-cobrar-whatsapp" type="button"
+             class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-rose-500 hover:bg-rose-600 active:scale-95 text-white shadow-sm transition"
+             title="Enviar lembrete amigável de cobrança no WhatsApp com a chave PIX">
+             💬 Cobrar Saldo
+           </button>`
+        : ''
 
     painelEl.innerHTML = `
-      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3.5 mb-3.5 border-b border-slate-200/80 dark:border-white/10">
-        <div class="min-w-0 flex-1 max-w-full">
-          <span class="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">Cliente</span>
-          <div class="flex items-center gap-2 min-w-0 max-w-full mt-0.5">
-            <h2 class="text-base sm:text-lg font-black truncate min-w-0" title="${escaparHTML(c.nome)}">${escaparHTML(c.nome)}</h2>
-            <span class="text-slate-300 dark:text-slate-600 shrink-0">•</span>
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</h2>
+            <button id="btn-editar-cliente" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
+          </div>
+          <div class="flex items-center gap-3 mt-1 flex-wrap">
             ${linkWhatsTelefone}
+            <span class="text-xs text-slate-400 dark:text-slate-500">•</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">${formatarAutoriaResumida(c)}</span>
           </div>
-          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1 truncate">${formatarAutoriaResumida(c)}</p>
         </div>
-
-        <div class="flex items-center gap-2 flex-wrap shrink-0">
-          ${
-            saldoDevedor > 0
-              ? `<button id="btn-cobrar-whatsapp" type="button" class="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-sm transition flex items-center gap-1.5" title="Enviar lembrete amigável de cobrança via WhatsApp">
-                   <span>💬 Cobrar Saldo</span>
-                 </button>`
-              : ''
-          }
-          <div class="flex items-center gap-2 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-1">
-            <button id="btn-exportar-whatsapp" type="button" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm transition flex items-center gap-1.5" title="Enviar extrato para o WhatsApp">
-              <span>📤 Enviar Extrato</span>
-            </button>
-            <label class="flex items-center gap-1.5 pr-2 text-xs font-bold text-emerald-900 dark:text-emerald-200 cursor-pointer select-none" title="Marque para anexar o extrato em PDF">
-              <input type="checkbox" id="check-anexar-pdf" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 accent-emerald-600 cursor-pointer" />
-              <span>PDF</span>
-            </label>
-          </div>
-          <a href="#/historico" class="${cls.btnIcone}" title="Ver histórico de alterações">📜</a>
-          <button id="editar-cliente" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
+        <div class="flex items-center gap-2 shrink-0">
+          ${btnCobrarWhatsApp}
+          <button id="btn-extrato-whats" type="button"
+            class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-sm transition"
+            title="Baixar PDF e enviar extrato completo para o cliente no WhatsApp">
+            📄 Extrato
+          </button>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
-        <div class="bg-emerald-50/80 border border-emerald-200 dark:bg-white/5 dark:border-emerald-500/20 rounded-2xl px-3 py-2.5 min-w-0">
-          <span class="block text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-300 uppercase font-extrabold tracking-wide">↑ Entradas (pagos)</span>
-          <span class="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400">${formatarMoeda(totalPagamentos)}</span>
+      <div class="grid grid-cols-3 gap-2.5 sm:gap-3">
+        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
+          <span class="block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-300 uppercase font-extrabold tracking-wide">🛍️ Produtos</span>
+          <span class="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 truncate block">${formatarMoeda(totalCompras)}</span>
         </div>
-        <div class="bg-rose-50/80 border border-rose-200 dark:bg-white/5 dark:border-rose-500/20 rounded-2xl px-3 py-2.5 min-w-0">
-          <span class="block text-[10px] sm:text-[11px] text-rose-700 dark:text-rose-300 uppercase font-extrabold tracking-wide">↓ Saídas (compras)</span>
-          <span class="text-sm sm:text-base font-black text-rose-600 dark:text-rose-400">${formatarMoeda(totalCompras)}</span>
+        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
+          <span class="block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-300 uppercase font-extrabold tracking-wide">💵 Pagamentos</span>
+          <span class="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 truncate block">${formatarMoeda(totalPagamentos)}</span>
         </div>
-        <div class="col-span-2 bg-slate-50 border border-slate-200 dark:bg-white/10 dark:border-white/10 rounded-2xl px-3.5 py-3 flex items-center justify-between gap-2">
-          <span class="text-xs sm:text-[13px] text-slate-700 dark:text-slate-200 uppercase font-extrabold tracking-wide">${rotuloSaldo}</span>
-          <span class="text-xl sm:text-2xl font-black ${corSaldo}">${formatarMoeda(Math.abs(saldoDevedor))}</span>
+        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
+          <span class="block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-300 uppercase font-extrabold tracking-wide">📌 ${rotuloSaldo}</span>
+          <span class="text-base sm:text-lg font-black ${corSaldo} truncate block">${formatarMoeda(Math.abs(saldoDevedor))}</span>
         </div>
       </div>
     `
 
-    painelEl.querySelector('#editar-cliente')!.addEventListener('click', () => {
-      abrirEdicaoCliente(c, async () => {
+    painelEl.querySelector('#btn-editar-cliente')?.addEventListener('click', () => {
+      abrirEdicaoCliente(cliente!, async () => {
         clientes = await listarClientes()
-        cliente = clientes.find(x => x.id === clienteId) ?? cliente
+        cliente = clientes.find(item => item.id === clienteId)
         renderSeletor()
         renderPainel()
       })
     })
 
-    const btnCobrar = painelEl.querySelector('#btn-cobrar-whatsapp')
-    if (btnCobrar) {
-      btnCobrar.addEventListener('click', () => {
-        enviarLembreteCobrancaWhatsApp(c, saldoDevedor, {
-          chavePix: perfil?.chave_pix,
-          nomeProfissional: perfil?.nome,
-        })
-      })
-    }
-
-    painelEl.querySelector('#btn-exportar-whatsapp')!.addEventListener('click', async () => {
-      const checkPdf = painelEl.querySelector<HTMLInputElement>('#check-anexar-pdf')
-      const incluirPdf = checkPdf ? checkPdf.checked : false
-      try {
-        await enviarExtratoWhatsApp(c, compras, pagamentos, incluirPdf, {
-          chavePix: perfil?.chave_pix,
-          nomeProfissional: perfil?.nome,
-        })
-      } catch (err) {
-        toast.error(mensagemErro(err, 'Erro ao exportar extrato'))
+    painelEl.querySelector('#btn-extrato-whats')?.addEventListener('click', () => {
+      const opcoesPix = {
+        chavePix: perfil?.chave_pix,
+        nomeProfissional: perfil?.nome,
       }
+      enviarExtratoWhatsApp(cliente!, compras, pagamentos, true, opcoesPix)
+    })
+
+    painelEl.querySelector('#btn-cobrar-whatsapp')?.addEventListener('click', () => {
+      const opcoesPix = {
+        chavePix: perfil?.chave_pix,
+        nomeProfissional: perfil?.nome,
+      }
+      enviarLembreteCobrancaWhatsApp(cliente!, saldoDevedor, opcoesPix)
     })
   }
 
@@ -290,6 +284,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     id: string
     titulo: string
     subtitulo: string
+    badgeExtra?: string
     autoria?: string
     valor: number
     cor: 'rose' | 'emerald'
@@ -300,8 +295,11 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     return `
       <li class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-3 pr-1.5 py-2">
         <div class="min-w-0 flex-1">
-          <p class="font-bold text-sm text-slate-900 dark:text-white truncate">${opts.titulo}</p>
-          <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 truncate">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="font-bold text-sm text-slate-900 dark:text-white truncate">${opts.titulo}</p>
+            ${opts.badgeExtra ?? ''}
+          </div>
+          <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
             <span>${opts.subtitulo}</span>
             ${opts.autoria ? `<span>•</span><span class="text-[11px] text-slate-400 dark:text-slate-500">${opts.autoria}</span>` : ''}
           </div>
@@ -356,13 +354,14 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     return `<li class="text-center py-6 text-sm text-slate-500 dark:text-slate-400">${texto}</li>`
   }
 
-  // ---------- Aba: Produtos comprados (saídas) ----------
+  // ---------- Aba: Produtos comprados (saídas) com Autocomplete ----------
   function renderAbaCompras(): void {
     abaEl.innerHTML = `
-      <form id="form-compra" novalidate class="grid grid-cols-2 sm:grid-cols-[2fr_1fr_1fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
-        <div class="col-span-2 sm:col-span-1">
-          <label class="${cls.label}" for="compra-produto">Produto</label>
-          <input id="compra-produto" type="text" class="${cls.input}" placeholder="Ex: Creme hidratante" autocomplete="off" maxlength="160">
+      <form id="form-compra" novalidate class="grid grid-cols-2 sm:grid-cols-[2fr_1fr_1fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 relative">
+        <div class="col-span-2 sm:col-span-1 relative">
+          <label class="${cls.label}" for="compra-produto">Produto / Serviço</label>
+          <input id="compra-produto" type="text" class="${cls.input}" placeholder="Ex: Creme hidratante, Design..." autocomplete="off" maxlength="160">
+          <div id="autocomplete-produtos" class="hidden absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-56 overflow-y-auto p-1.5 space-y-1"></div>
         </div>
         <div>
           <label class="${cls.label}" for="compra-valor">Valor (R$)</label>
@@ -435,9 +434,78 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     const produtoInput = abaEl.querySelector<HTMLInputElement>('#compra-produto')!
     const valorInput = abaEl.querySelector<HTMLInputElement>('#compra-valor')!
     const dataInput = abaEl.querySelector<HTMLInputElement>('#compra-data')!
+    const boxAutocomplete = abaEl.querySelector<HTMLElement>('#autocomplete-produtos')!
+
+    // Autocomplete do catálogo
+    async function renderSugestoes(termo: string): Promise<void> {
+      try {
+        const sugestoes = await obterSugestoesCatalogo(termo)
+        if (sugestoes.length === 0) {
+          boxAutocomplete.classList.add('hidden')
+          boxAutocomplete.innerHTML = ''
+          return
+        }
+
+        boxAutocomplete.innerHTML = `
+          <div class="px-2 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+            💡 Sugestões mais usadas
+          </div>
+          ${sugestoes
+            .map(
+              (s, i) => `
+            <button type="button" data-idx="${i}" class="btn-sugestao w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-slate-800 transition flex items-center justify-between group">
+              <div class="min-w-0 pr-2">
+                <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate block">${escaparHTML(s.produto)}</span>
+                <span class="text-[10px] text-slate-400 dark:text-slate-500">usado ${s.frequencia}x</span>
+              </div>
+              <span class="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/20 px-2 py-0.5 rounded-lg shrink-0">
+                ${formatarMoeda(s.valorSugerido)}
+              </span>
+            </button>
+          `
+            )
+            .join('')}
+        `
+
+        boxAutocomplete.classList.remove('hidden')
+
+        boxAutocomplete.querySelectorAll<HTMLButtonElement>('.btn-sugestao').forEach(btn => {
+          btn.addEventListener('mousedown', e => {
+            e.preventDefault()
+            const idx = Number(btn.dataset.idx)
+            const item = sugestoes[idx]
+            if (item) {
+              produtoInput.value = item.produto
+              valorInput.value = valorParaInput(item.valorSugerido)
+              boxAutocomplete.classList.add('hidden')
+              valorInput.focus()
+              valorInput.select()
+            }
+          })
+        })
+      } catch {
+        boxAutocomplete.classList.add('hidden')
+      }
+    }
+
+    produtoInput.addEventListener('input', () => {
+      renderSugestoes(produtoInput.value)
+    })
+
+    produtoInput.addEventListener('focus', () => {
+      renderSugestoes(produtoInput.value)
+    })
+
+    produtoInput.addEventListener('blur', () => {
+      // Pequeno atraso para permitir clique nos botões
+      setTimeout(() => {
+        boxAutocomplete.classList.add('hidden')
+      }, 150)
+    })
 
     form.addEventListener('submit', async e => {
       e.preventDefault()
+      boxAutocomplete.classList.add('hidden')
       const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
       try {
         const produto = produtoInput.value.trim()
@@ -447,10 +515,13 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         btn.disabled = true
         await criarCompra({ cliente_id: clienteId, produto, valor, data })
         toast.success('Produto lançado com sucesso!')
+        form.reset()
+        dataInput.value = hojeISO()
         await recarregarLancamentos()
         abaEl.querySelector<HTMLInputElement>('#compra-produto')?.focus()
       } catch (err) {
         toast.error(mensagemErro(err, 'Erro ao lançar produto'))
+      } finally {
         btn.disabled = false
       }
     })
@@ -498,13 +569,23 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     })
   }
 
-  // ---------- Aba: Pagamentos (entradas) ----------
+  // ---------- Aba: Pagamentos (entradas) com Forma de Pagamento ----------
   function renderAbaPagamentos(): void {
     abaEl.innerHTML = `
-      <form id="form-pagamento" novalidate class="grid grid-cols-2 sm:grid-cols-[1fr_1fr_2fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
+      <form id="form-pagamento" novalidate class="grid grid-cols-2 sm:grid-cols-[1.2fr_1.3fr_1.2fr_1.8fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
         <div>
           <label class="${cls.label}" for="pagamento-valor">Valor pago (R$)</label>
           <input id="pagamento-valor" type="text" inputmode="decimal" class="${cls.input}" placeholder="0,00" autocomplete="off">
+        </div>
+        <div>
+          <label class="${cls.label}" for="pagamento-forma">Forma de pgto</label>
+          <select id="pagamento-forma" class="${cls.input} font-semibold">
+            <option value="pix" selected>💠 PIX</option>
+            <option value="dinheiro">💵 Dinheiro</option>
+            <option value="credito">💳 Crédito</option>
+            <option value="debito">💳 Débito</option>
+            <option value="outro">🏷️ Outro</option>
+          </select>
         </div>
         <div>
           <label class="${cls.label}" for="pagamento-data">Data</label>
@@ -512,7 +593,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         </div>
         <div class="col-span-2 sm:col-span-1">
           <label class="${cls.label}" for="pagamento-descricao">Descrição (opcional)</label>
-          <input id="pagamento-descricao" type="text" class="${cls.input}" placeholder="Ex: Pix, dinheiro..." autocomplete="off" maxlength="200">
+          <input id="pagamento-descricao" type="text" class="${cls.input}" placeholder="Ex: Parcela 1..." autocomplete="off" maxlength="200">
         </div>
         <div class="col-span-2 sm:col-span-1 flex items-end">
           <button type="submit" class="${cls.btnPrimario} w-full">Lançar</button>
@@ -538,7 +619,13 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         const desc = (p.descricao || '').toLowerCase()
         const valorFormatado = formatarMoeda(p.valor).toLowerCase()
         const valorStr = String(p.valor)
-        return desc.includes(termo) || valorFormatado.includes(termo) || valorStr.includes(termo)
+        const formaInfo = obterInfoFormaPagamento(p.forma_pagamento)
+        return (
+          desc.includes(termo) ||
+          valorFormatado.includes(termo) ||
+          valorStr.includes(termo) ||
+          formaInfo.label.toLowerCase().includes(termo)
+        )
       })
       const ordenados = ordenarItens(filtrados, ordemLancamento)
 
@@ -554,16 +641,20 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       }
 
       listaEl.innerHTML = ordenados
-        .map(p =>
-          itemLista({
+        .map(p => {
+          const formaInfo = obterInfoFormaPagamento(p.forma_pagamento)
+          const badgeForma = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${formaInfo.corBadge} border inline-flex items-center gap-1 shrink-0">${formaInfo.icone} ${formaInfo.label}</span>`
+
+          return itemLista({
             id: p.id,
             titulo: p.descricao ? escaparHTML(p.descricao) : 'Pagamento',
             subtitulo: `📅 ${formatarData(p.data)}`,
+            badgeExtra: badgeForma,
             autoria: formatarAutoriaResumida(p),
             valor: p.valor,
             cor: 'emerald',
           })
-        )
+        })
         .join('')
     }
 
@@ -572,6 +663,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
     const form = abaEl.querySelector<HTMLFormElement>('#form-pagamento')!
     const valorInput = abaEl.querySelector<HTMLInputElement>('#pagamento-valor')!
+    const formaSelect = abaEl.querySelector<HTMLSelectElement>('#pagamento-forma')!
     const dataInput = abaEl.querySelector<HTMLInputElement>('#pagamento-data')!
     const descInput = abaEl.querySelector<HTMLInputElement>('#pagamento-descricao')!
 
@@ -581,13 +673,24 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       try {
         const valor = validarValor(valorInput.value)
         const data = validarData(dataInput.value)
+        const forma_pagamento = formaSelect.value
         btn.disabled = true
-        await criarPagamento({ cliente_id: clienteId, valor, data, descricao: descInput.value })
+        await criarPagamento({
+          cliente_id: clienteId,
+          valor,
+          data,
+          descricao: descInput.value,
+          forma_pagamento,
+        })
         toast.success('Pagamento lançado com sucesso!')
+        form.reset()
+        dataInput.value = hojeISO()
+        formaSelect.value = 'pix'
         await recarregarLancamentos()
         abaEl.querySelector<HTMLInputElement>('#pagamento-valor')?.focus()
       } catch (err) {
         toast.error(mensagemErro(err, 'Erro ao lançar pagamento'))
+      } finally {
         btn.disabled = false
       }
     })
@@ -604,6 +707,19 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           titulo: 'Editar pagamento',
           campos: [
             { nome: 'valor', label: 'Valor pago (R$)', tipo: 'valor', valor: valorParaInput(pagamento.valor), obrigatorio: true },
+            {
+              nome: 'forma_pagamento',
+              label: 'Forma de pagamento',
+              tipo: 'select',
+              valor: pagamento.forma_pagamento || 'pix',
+              opcoes: [
+                { valor: 'pix', label: '💠 PIX' },
+                { valor: 'dinheiro', label: '💵 Dinheiro' },
+                { valor: 'credito', label: '💳 Cartão de Crédito' },
+                { valor: 'debito', label: '💳 Cartão de Débito' },
+                { valor: 'outro', label: '🏷️ Outro' },
+              ],
+            },
             { nome: 'data', label: 'Data', tipo: 'date', valor: pagamento.data, obrigatorio: true },
             { nome: 'descricao', label: 'Descrição (opcional)', tipo: 'text', valor: pagamento.descricao ?? '' },
           ],
@@ -612,6 +728,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
               valor: validarValor(v.valor),
               data: validarData(v.data),
               descricao: v.descricao,
+              forma_pagamento: v.forma_pagamento,
             })
             toast.success('Pagamento atualizado!')
             await recarregarLancamentos()

@@ -41,6 +41,8 @@ export interface Compra extends AutoriaCampos {
   data: string
 }
 
+export type FormaPagamento = 'pix' | 'dinheiro' | 'credito' | 'debito' | 'outro'
+
 /** Entrada: valor pago pelo cliente. */
 export interface Pagamento extends AutoriaCampos {
   id: string
@@ -48,6 +50,7 @@ export interface Pagamento extends AutoriaCampos {
   valor: number
   data: string
   descricao: string | null
+  forma_pagamento?: FormaPagamento | string | null
 }
 
 export interface HistoricoItem {
@@ -65,10 +68,28 @@ export interface HistoricoItem {
 
 export type NovoCliente = Pick<Cliente, 'nome' | 'telefone'>
 export type NovaCompra = Pick<Compra, 'cliente_id' | 'produto' | 'valor' | 'data'>
-export type NovoPagamento = Pick<Pagamento, 'cliente_id' | 'valor' | 'data' | 'descricao'>
+export type NovoPagamento = Pick<Pagamento, 'cliente_id' | 'valor' | 'data' | 'descricao'> & {
+  forma_pagamento?: FormaPagamento | string | null
+}
 
 export interface ResumoCliente {
   totalCompras: number
   totalPagamentos: number
   saldoDevedor: number
+}
+
+export interface ItemCatalogo {
+  produto: string
+  valorSugerido: number
+  frequencia: number
+  ultimoUso: string
+}
+
+export interface ResumoFinanceiro {
+  totalRecebido: number
+  totalVendido: number
+  saldoPeriodo: number
+  porFormaPagamento: Record<string, number>
+  quantidadePagamentos: number
+  quantidadeVendas: number
 }

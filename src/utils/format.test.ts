@@ -4,9 +4,12 @@ import {
   formatarAutoriaResumida,
   formatarData,
   formatarDataHora,
+  formatarMesAno,
   formatarTelefone,
   hojeISO,
   linkWhatsApp,
+  nomeMes,
+  obterInfoFormaPagamento,
   parseValor,
   valorParaInput,
 } from './format'
@@ -71,5 +74,19 @@ describe('formatadores', () => {
   it('formatarDataHora', () => {
     const res = formatarDataHora('2026-11-06T14:30:00Z')
     expect(res).toContain('06/11/2026')
+  })
+
+  it('nomeMes e formatarMesAno', () => {
+    expect(nomeMes(1)).toBe('Janeiro')
+    expect(nomeMes(11)).toBe('Novembro')
+    expect(formatarMesAno(2026, 3)).toBe('Março de 2026')
+  })
+
+  it('obterInfoFormaPagamento', () => {
+    expect(obterInfoFormaPagamento('pix').label).toBe('PIX')
+    expect(obterInfoFormaPagamento('dinheiro').label).toBe('Dinheiro')
+    expect(obterInfoFormaPagamento('credito').icone).toBe('💳')
+    expect(obterInfoFormaPagamento(null).id).toBe('pix')
+    expect(obterInfoFormaPagamento('desconhecido').id).toBe('outro')
   })
 })

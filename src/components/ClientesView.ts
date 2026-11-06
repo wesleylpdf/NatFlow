@@ -5,8 +5,15 @@ import {
   excluirCliente,
   listarClientesComSaldo,
 } from '@/services/clientes'
-import type { ClienteComSaldo } from '@/types'
-import { escaparHTML, formatarAutoriaResumida, formatarMoeda, formatarTelefone } from '@/utils/format'
+import { obterResumoFinanceiro } from '@/services/financeiro'
+import type { ClienteComSaldo, ResumoFinanceiro } from '@/types'
+import {
+  escaparHTML,
+  formatarAutoriaResumida,
+  formatarMesAno,
+  formatarMoeda,
+  formatarTelefone,
+} from '@/utils/format'
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
@@ -30,7 +37,7 @@ function badgeSaldo(saldo: number): string {
 }
 
 /**
- * Tela inicial: cadastro e lista de clientes com saldo devedor, filtros rápidos e sanfona.
+ * Tela inicial: resumo financeiro por período, cadastro e lista de clientes com filtros rápidos.
  */
 export async function renderClientes(container: HTMLElement): Promise<void> {
   container.innerHTML = loadingHTML()
@@ -43,14 +50,42 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     return
   }
 
+  // Controle de período financeiro
+  const dataHoje = new Date()
+  let periodoTipo: 'mes' | 'tudo' = 'mes'
+  let periodoAno = dataHoje.getFullYear()
+  let periodoMes = dataHoje.getMonth() + 1 // 1 a 12
+
+  let resumoFin: ResumoFinanceiro = {
+    totalRecebido: 0,
+    totalVendido: 0,
+    saldoPeriodo: 0,
+    porFormaPagamento: { pix: 0, dinheiro: 0, credito: 0, debito: 0, outro: 0 },
+    quantidadePagamentos: 0,
+    quantidadeVendas: 0,
+  }
+
   let busca = ''
   let filtroStatus: FiltroStatus = 'todos'
+
+  async function atualizarResumoFinanceiro(): Promise<void> {
+    try {
+      resumoFin = await obterResumoFinanceiro(
+        periodoTipo === 'tudo'
+          ? { tudo: true }
+          : { ano: periodoAno, mes: periodoMes }
+      )
+      renderResumo()
+    } catch (e) {
+      console.warn('Erro ao obter resumo financeiro:', e)
+    }
+  }
 
   const recarregar = async (): Promise<void> => {
     try {
       clientes = await listarClientesComSaldo()
       renderLista()
-      renderResumo()
+      await atualizarResumoFinanceiro()
       const contador = container.querySelector('#contador-clientes')
       if (contador) contador.textContent = `(${clientes.length})`
     } catch (e) {
@@ -60,7 +95,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
   container.innerHTML = `
     <div class="max-w-3xl mx-auto space-y-4">
-      <section id="resumo-geral" class="relative overflow-hidden bg-white/95 text-slate-900 border border-slate-200/90 shadow-md dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-emerald-950 dark:text-white dark:border-slate-800 p-4 sm:p-5 rounded-3xl"></section>
+      <section id="resumo-geral" class="relative overflow-hidden bg-white/95 text-slate-900 border border-slate-200/90 shadow-md dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-emerald-950 dark:text-white dark:border-slate-800 p-4 sm:p-5 rounded-3xl space-y-3.5"></section>
 
       <!-- Sanfona: Cadastrar Cliente -->
       <section class="${cls.card} p-4 sm:p-5">
@@ -139,7 +174,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     }
   })
 
-  // Botões de filtro rápido
+  // Botões de filtro rápido da lista
   container.querySelectorAll<HTMLButtonElement>('.btn-filtro').forEach(btn => {
     btn.addEventListener('click', () => {
       const f = btn.dataset.filtro as FiltroStatus
@@ -151,22 +186,163 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   })
 
   function renderResumo(): void {
-    const aReceber = clientes.reduce((acc, c) => acc + (c.saldo_devedor > 0 ? c.saldo_devedor : 0), 0)
-    const devedores = clientes.filter(c => c.saldo_devedor > 0).length
+    const aReceberGeral = clientes.reduce((acc, c) => acc + (c.saldo_devedor > 0 ? c.saldo_devedor : 0), 0)
+    const devedoresGeral = clientes.filter(c => c.saldo_devedor > 0).length
+
+    const rotuloPeriodo =
+      periodoTipo === 'tudo'
+        ? 'Todo o Período'
+        : formatarMesAno(periodoAno, periodoMes)
+
+    const ehMesAtual =
+      periodoTipo === 'mes' &&
+      periodoAno === dataHoje.getFullYear() &&
+      periodoMes === dataHoje.getMonth() + 1
+
+    const dataMesAnterior = new Date(dataHoje.getFullYear(), dataHoje.getMonth() - 1, 1)
+    const ehMesAnterior =
+      periodoTipo === 'mes' &&
+      periodoAno === dataMesAnterior.getFullYear() &&
+      periodoMes === dataMesAnterior.getMonth() + 1
+
+    const corSaldoPeriodo =
+      resumoFin.saldoPeriodo > 0
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : resumoFin.saldoPeriodo < 0
+          ? 'text-rose-600 dark:text-rose-400'
+          : 'text-slate-900 dark:text-white'
+
     resumoEl.innerHTML = `
-      <span class="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest mb-2">Resumo geral</span>
-      <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
-        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-300 uppercase font-extrabold tracking-wide">Clientes</span>
-          <span class="text-lg font-black">${clientes.length}</span>
-          <span class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold"> • ${devedores} com débito</span>
+      <!-- Cabeçalho do Resumo com Navegação de Período -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100 dark:border-white/10">
+        <div class="flex items-center justify-between sm:justify-start gap-2">
+          <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold uppercase tracking-widest">Resumo Financeiro</span>
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-white/10 rounded-xl px-1.5 py-0.5">
+            <button id="btn-mes-anterior" type="button" class="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-emerald-500 rounded-lg transition" title="Mês anterior">◀</button>
+            <span id="rotulo-mes-ano" class="text-xs font-black text-slate-900 dark:text-white px-1 whitespace-nowrap">${escaparHTML(rotuloPeriodo)}</span>
+            <button id="btn-mes-proximo" type="button" class="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-emerald-500 rounded-lg transition" title="Próximo mês">▶</button>
+          </div>
         </div>
-        <div class="bg-rose-50/80 border border-rose-200 dark:bg-white/5 dark:border-rose-500/20 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] sm:text-[11px] text-rose-700 dark:text-rose-300 uppercase font-extrabold tracking-wide">Total a receber</span>
-          <span class="text-lg font-black text-rose-600 dark:text-rose-400">${formatarMoeda(aReceber)}</span>
+
+        <div class="flex items-center gap-1 text-[11px] font-bold" role="group">
+          <button id="btn-p-atual" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition ${
+            ehMesAtual
+              ? 'bg-emerald-600 text-white font-black shadow-sm'
+              : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+          }">Este Mês</button>
+          <button id="btn-p-anterior" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition ${
+            ehMesAnterior
+              ? 'bg-emerald-600 text-white font-black shadow-sm'
+              : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+          }">Mês Anterior</button>
+          <button id="btn-p-tudo" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition ${
+            periodoTipo === 'tudo'
+              ? 'bg-emerald-600 text-white font-black shadow-sm'
+              : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+          }">Geral</button>
+        </div>
+      </div>
+
+      <!-- 4 Cards Principais de Indicadores -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-3 py-2.5">
+          <span class="block text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-black tracking-wide">📥 Entradas</span>
+          <span class="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-300 truncate block">${formatarMoeda(resumoFin.totalRecebido)}</span>
+          <span class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-semibold">${resumoFin.quantidadePagamentos} pagamentos</span>
+        </div>
+
+        <div class="bg-rose-500/10 border border-rose-500/20 rounded-2xl px-3 py-2.5">
+          <span class="block text-[10px] text-rose-700 dark:text-rose-300 uppercase font-black tracking-wide">🛍️ Vendas</span>
+          <span class="text-base sm:text-lg font-black text-rose-700 dark:text-rose-300 truncate block">${formatarMoeda(resumoFin.totalVendido)}</span>
+          <span class="text-[10px] text-rose-600/80 dark:text-rose-400/80 font-semibold">${resumoFin.quantidadeVendas} produtos</span>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
+          <span class="block text-[10px] text-slate-500 dark:text-slate-300 uppercase font-black tracking-wide">⚖️ Balanço</span>
+          <span class="text-base sm:text-lg font-black ${corSaldoPeriodo} truncate block">${formatarMoeda(resumoFin.saldoPeriodo)}</span>
+          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">Entradas − Vendas</span>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
+          <span class="block text-[10px] text-slate-500 dark:text-slate-300 uppercase font-black tracking-wide">👥 A Receber</span>
+          <span class="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate block">${formatarMoeda(aReceberGeral)}</span>
+          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">${devedoresGeral} com débito</span>
+        </div>
+      </div>
+
+      <!-- Detalhamento de Entradas por Forma de Pagamento -->
+      <div class="bg-slate-50/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 rounded-2xl p-2.5 sm:p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-300">
+            💳 Entradas por Forma de Pagamento
+          </span>
+          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">
+            ${escaparHTML(rotuloPeriodo)}
+          </span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold block">💠 PIX</span>
+            <span class="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 block truncate">${formatarMoeda(resumoFin.porFormaPagamento.pix || 0)}</span>
+          </div>
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold block">💵 Dinheiro</span>
+            <span class="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400 block truncate">${formatarMoeda(resumoFin.porFormaPagamento.dinheiro || 0)}</span>
+          </div>
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold block">💳 Crédito</span>
+            <span class="text-xs sm:text-sm font-black text-sky-600 dark:text-sky-400 block truncate">${formatarMoeda(resumoFin.porFormaPagamento.credito || 0)}</span>
+          </div>
+          <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold block">💳 Débito</span>
+            <span class="text-xs sm:text-sm font-black text-indigo-600 dark:text-indigo-400 block truncate">${formatarMoeda(resumoFin.porFormaPagamento.debito || 0)}</span>
+          </div>
         </div>
       </div>
     `
+
+    // Eventos dos controles de período
+    resumoEl.querySelector('#btn-mes-anterior')?.addEventListener('click', async () => {
+      periodoTipo = 'mes'
+      if (periodoMes === 1) {
+        periodoMes = 12
+        periodoAno--
+      } else {
+        periodoMes--
+      }
+      await atualizarResumoFinanceiro()
+    })
+
+    resumoEl.querySelector('#btn-mes-proximo')?.addEventListener('click', async () => {
+      periodoTipo = 'mes'
+      if (periodoMes === 12) {
+        periodoMes = 1
+        periodoAno++
+      } else {
+        periodoMes++
+      }
+      await atualizarResumoFinanceiro()
+    })
+
+    resumoEl.querySelector('#btn-p-atual')?.addEventListener('click', async () => {
+      periodoTipo = 'mes'
+      periodoAno = dataHoje.getFullYear()
+      periodoMes = dataHoje.getMonth() + 1
+      await atualizarResumoFinanceiro()
+    })
+
+    resumoEl.querySelector('#btn-p-anterior')?.addEventListener('click', async () => {
+      periodoTipo = 'mes'
+      const ant = new Date(dataHoje.getFullYear(), dataHoje.getMonth() - 1, 1)
+      periodoAno = ant.getFullYear()
+      periodoMes = ant.getMonth() + 1
+      await atualizarResumoFinanceiro()
+    })
+
+    resumoEl.querySelector('#btn-p-tudo')?.addEventListener('click', async () => {
+      periodoTipo = 'tudo'
+      await atualizarResumoFinanceiro()
+    })
   }
 
   function renderLista(): void {
@@ -319,6 +495,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
   renderResumo()
   renderLista()
+  await atualizarResumoFinanceiro()
 }
 
 /** Abre o modal de edição de cliente (usado na lista e na tela do cliente). */

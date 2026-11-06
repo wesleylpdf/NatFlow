@@ -1,5 +1,5 @@
 import type { Cliente, Compra, Pagamento } from '@/types'
-import { formatarData, formatarDataHora, formatarMoeda } from '@/utils/format'
+import { formatarData, formatarDataHora, formatarMoeda, obterInfoFormaPagamento } from '@/utils/format'
 import { calcularResumo } from '@/utils/saldo'
 import { toast } from '@/utils/toast'
 
@@ -136,7 +136,7 @@ export async function gerarExtratoPdf(
   doc.setFontSize(8)
   doc.setTextColor(71, 85, 105)
   doc.text('DATA', margin + 3, y)
-  doc.text('DESCRIÇÃO', margin + 30, y)
+  doc.text('DESCRIÇÃO / FORMA', margin + 30, y)
   doc.text('VALOR', pageWidth - margin - 3, y, { align: 'right' })
   y += 5
 
@@ -153,7 +153,12 @@ export async function gerarExtratoPdf(
       checarQuebraPagina(8)
       doc.setFontSize(8)
       doc.text(formatarData(pag.data), margin + 3, y)
-      const desc = doc.splitTextToSize(pag.descricao || 'Pagamento', 105)
+
+      const formaInfo = obterInfoFormaPagamento(pag.forma_pagamento)
+      const descBase = pag.descricao ? pag.descricao : 'Pagamento'
+      const descCompleta = `${descBase} (${formaInfo.label})`
+
+      const desc = doc.splitTextToSize(descCompleta, 105)
       doc.text(desc, margin + 30, y)
       doc.text(formatarMoeda(pag.valor), pageWidth - margin - 3, y, { align: 'right' })
       y += Math.max(desc.length * 4.5, 6)

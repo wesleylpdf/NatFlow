@@ -1,3 +1,5 @@
+import type { FormaPagamento } from '@/types'
+
 /**
  * Formata valor monetário em BRL
  */
@@ -116,4 +118,79 @@ export function linkWhatsApp(telefone: string): string | null {
   const d = telefone.replace(/\D/g, '')
   if (d.length < 10) return null
   return `https://api.whatsapp.com/send?phone=55${d}`
+}
+
+export interface InfoFormaPagamento {
+  id: FormaPagamento
+  label: string
+  icone: string
+  corBadge: string
+}
+
+export const FORMAS_PAGAMENTO: InfoFormaPagamento[] = [
+  {
+    id: 'pix',
+    label: 'PIX',
+    icone: '💠',
+    corBadge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
+  },
+  {
+    id: 'dinheiro',
+    label: 'Dinheiro',
+    icone: '💵',
+    corBadge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20',
+  },
+  {
+    id: 'credito',
+    label: 'Crédito',
+    icone: '💳',
+    corBadge: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20',
+  },
+  {
+    id: 'debito',
+    label: 'Débito',
+    icone: '💳',
+    corBadge: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20',
+  },
+  {
+    id: 'outro',
+    label: 'Outro',
+    icone: '🏷️',
+    corBadge: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20',
+  },
+]
+
+export function obterInfoFormaPagamento(forma?: string | null): InfoFormaPagamento {
+  const normalizada = (forma || 'pix').toLowerCase()
+  const encontrada = FORMAS_PAGAMENTO.find(f => f.id === normalizada)
+  if (encontrada) return encontrada
+  return {
+    id: 'outro',
+    label: forma || 'Outro',
+    icone: '🏷️',
+    corBadge: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20',
+  }
+}
+
+const MESES = [
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+]
+
+export function nomeMes(mes: number): string {
+  return MESES[mes - 1] || ''
+}
+
+export function formatarMesAno(ano: number, mes: number): string {
+  return `${nomeMes(mes)} de ${ano}`
 }

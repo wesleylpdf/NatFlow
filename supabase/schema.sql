@@ -153,6 +153,7 @@ CREATE TABLE IF NOT EXISTS public.pagamentos (
   valor NUMERIC(12, 2) NOT NULL CHECK (valor > 0),
   data DATE NOT NULL DEFAULT CURRENT_DATE,
   descricao TEXT,
+  forma_pagamento TEXT DEFAULT 'pix',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   criado_por TEXT,
   atualizado_por TEXT,
@@ -160,6 +161,9 @@ CREATE TABLE IF NOT EXISTS public.pagamentos (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pagamentos_cliente_data ON public.pagamentos(cliente_id, data DESC);
+CREATE INDEX IF NOT EXISTS idx_pagamentos_data ON public.pagamentos(data DESC);
+CREATE INDEX IF NOT EXISTS idx_pagamentos_forma ON public.pagamentos(forma_pagamento);
+CREATE INDEX IF NOT EXISTS idx_compras_data ON public.compras(data DESC);
 
 -- Triggers de autoria
 DROP TRIGGER IF EXISTS trg_autoria ON public.autorizados;

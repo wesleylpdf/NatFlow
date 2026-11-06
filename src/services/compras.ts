@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
+import { limparCacheCatalogo } from '@/services/catalogo'
 import type { Compra, NovaCompra } from '@/types'
 
 /** Lista as compras (saídas) de um cliente, mais recentes primeiro. */
@@ -21,6 +22,7 @@ export async function criarCompra(dados: NovaCompra): Promise<void> {
     data: dados.data,
   })
   if (error) throw error
+  limparCacheCatalogo()
 }
 
 export async function atualizarCompra(
@@ -32,9 +34,11 @@ export async function atualizarCompra(
     .update({ produto: dados.produto.trim(), valor: dados.valor, data: dados.data })
     .eq('id', id)
   if (error) throw error
+  limparCacheCatalogo()
 }
 
 export async function excluirCompra(id: string): Promise<void> {
   const { error } = await supabase.from('compras').delete().eq('id', id)
   if (error) throw error
+  limparCacheCatalogo()
 }
