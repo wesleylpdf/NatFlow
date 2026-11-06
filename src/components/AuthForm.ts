@@ -22,12 +22,12 @@ function traduzirErro(msg: string): string {
 
 export function criarAuthForm(container: HTMLElement): void {
   container.innerHTML = `
-    <div id="auth-screen" class="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex items-center justify-center z-[999] p-4">
-      <form id="auth-form" novalidate class="relative bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 p-7 sm:p-8 rounded-3xl text-center w-full max-w-sm mx-auto shadow-2xl">
-        <img src="/logo-natflow.svg" alt="NatFlow" class="mx-auto mb-4 w-20 h-20 rounded-2xl shadow-lg shadow-emerald-500/30 object-contain">
+    <div id="auth-screen" class="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex items-center justify-center z-[999] p-4 overflow-y-auto min-h-screen">
+      <form id="auth-form" novalidate class="relative bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 rounded-3xl text-center w-full max-w-sm mx-auto shadow-2xl my-auto">
+        <img src="/logo-natflow.svg" alt="NatFlow" class="mx-auto mb-3 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shadow-lg shadow-emerald-500/30 object-contain">
         <h2 class="font-black text-2xl mb-1 text-slate-900 dark:text-white tracking-tight">NatFlow</h2>
-        <p id="auth-subtitle" class="text-sm text-slate-500 mb-4 dark:text-slate-400">Entre na sua conta</p>
-        <div class="inline-block mb-5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Versão: ${__BUILD_VERSION__}</div>
+        <p id="auth-subtitle" class="text-sm text-slate-500 mb-3 dark:text-slate-400">Entre na sua conta</p>
+        <div class="inline-block mb-4 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Versão: ${__BUILD_VERSION__}</div>
 
         <div class="space-y-3 mb-4 text-left">
           <input type="email" id="auth-email" class="border border-slate-200 p-3.5 rounded-2xl w-full bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-white text-base focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="Seu e-mail" autocomplete="email">

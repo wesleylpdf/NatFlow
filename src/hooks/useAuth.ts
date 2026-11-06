@@ -21,10 +21,16 @@ let listeners: AuthCallback[] = []
  * Inicializa auth e escuta mudanças de estado
  */
 export function initAuth(): () => void {
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    currentState = { user: session?.user ?? null, session, loading: false }
-    notifyListeners()
-  })
+  supabase.auth
+    .getSession()
+    .then(({ data: { session } }) => {
+      currentState = { user: session?.user ?? null, session, loading: false }
+      notifyListeners()
+    })
+    .catch(() => {
+      currentState = { user: null, session: null, loading: false }
+      notifyListeners()
+    })
 
   const {
     data: { subscription },
@@ -32,6 +38,14 @@ export function initAuth(): () => void {
     currentState = { user: session?.user ?? null, session, loading: false }
     notifyListeners()
   })
+
+  // Timeout de segurança: no máximo 1.5s em loading para nunca congelar a tela
+  setTimeout(() => {
+    if (currentState.loading) {
+      currentState = { ...currentState, loading: false }
+      notifyListeners()
+    }
+  }, 1500)
 
   return () => subscription.unsubscribe()
 }
@@ -41,6 +55,8 @@ export function initAuth(): () => void {
  */
 export function onAuthChange(callback: AuthCallback): () => void {
   listeners.push(callback)
+  // Notifica imediatamente com o estado atual
+  callback(currentState)
   return () => {
     listeners = listeners.filter(l => l !== callback)
   }

@@ -66,10 +66,19 @@ function iniciar(): void {
   initAuth()
 
   onAuthChange(state => {
-    if (state.loading) return
+    if (state.loading) {
+      if (!app.innerHTML.trim()) {
+        app.innerHTML = `
+          <div class="min-h-screen flex items-center justify-center">
+            <div class="w-9 h-9 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>`
+      }
+      return
+    }
+
     const userId = state.user?.id ?? null
-    // Evita re-render em eventos como TOKEN_REFRESHED
-    if (userId === usuarioRenderizado) return
+    // Evita re-render em eventos como TOKEN_REFRESHED se já estiver com tela renderizada
+    if (userId === usuarioRenderizado && app.querySelector('#view, #auth-form')) return
     usuarioRenderizado = userId
 
     if (!state.user) {
