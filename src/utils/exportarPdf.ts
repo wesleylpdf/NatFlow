@@ -1,7 +1,8 @@
 import type { Cliente, Compra, Pagamento } from '@/types'
-import { formatarData, formatarDataHora, formatarMoeda, obterInfoFormaPagamento } from '@/utils/format'
+import { formatarData, formatarDataHora, formatarMoeda, obterInfoFormaPagamento, escaparHTML } from '@/utils/format'
 import { calcularResumo } from '@/utils/saldo'
 import { toast } from '@/utils/toast'
+import { criarOverlay } from '@/components/Modal'
 
 export interface OpcoesPix {
   chavePix?: string | null
@@ -230,63 +231,15 @@ export async function gerarExtratoPdf(
 }
 
 /**
- * Compartilha o arquivo PDF diretamente pela folha nativa do celular (Android/iOS)
- * ou realiza o download caso o navegador não suporte Web Share API com arquivos.
+ * Monta a mensagem textual amigável com o resumo financeiro e chave PIX
  */
-export async function compartilharExtratoPdfNativo(
+export function montarTextoResumoExtrato(
   cliente: Cliente,
   compras: Compra[],
   pagamentos: Pagamento[],
   opcoes?: OpcoesPix
-): Promise<boolean> {
-  toast.info('Gerando extrato em PDF...')
-  const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
-
-  // 1. Tenta compartilhamento nativo no celular (Android / iOS)
-  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-    try {
-      await navigator.share({
-        files: [pdfFile],
-        title: `Extrato NatFlow - ${cliente.nome}`,
-        text: `Olá! Segue o extrato financeiro detalhado de ${cliente.nome} no NatFlow.`,
-      })
-      toast.success('Extrato compartilhado!')
-      return true
-    } catch (err: unknown) {
-      if ((err as Error)?.name === 'AbortError') {
-        return false // Usuário apenas cancelou o menu
-      }
-      console.warn('[WebShare] Erro no compartilhamento nativo:', err)
-    }
-  }
-
-  // 2. Fallback: Download do PDF no aparelho/computador
-  const fileUrl = URL.createObjectURL(pdfFile)
-  const linkDownload = document.createElement('a')
-  linkDownload.href = fileUrl
-  linkDownload.download = pdfFile.name
-  document.body.appendChild(linkDownload)
-  linkDownload.click()
-  linkDownload.remove()
-  setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)
-  toast.success('Extrato PDF baixado!')
-  return true
-}
-
-/**
- * Envia o resumo e o extrato PDF: prioriza a folha nativa do celular (Web Share API)
- * e faz fallback seguro baixando o PDF e abrindo o WhatsApp.
- */
-export async function enviarExtratoWhatsApp(
-  cliente: Cliente,
-  compras: Compra[],
-  pagamentos: Pagamento[],
-  incluirPdf = true,
-  opcoes?: OpcoesPix
-): Promise<void> {
+): string {
   const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
-
-  // Normaliza espaços monetários para evitar artefatos de codificação em URLs
   const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
 
   const situacao =
@@ -309,58 +262,247 @@ export async function enviarExtratoWhatsApp(
     }
   }
 
-  if (incluirPdf) {
-    toast.info('Gerando extrato em PDF...')
-    const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
+  return mensagemTexto
+}
 
-    // 1. No celular (Android/iOS), se suportar Web Share API com arquivos:
-    // Abre a folha nativa com o arquivo PDF anexado e o texto da mensagem pré-preenchido!
-    if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-      try {
-        await navigator.share({
-          files: [pdfFile],
-          title: `Extrato NatFlow - ${cliente.nome}`,
-          text: mensagemTexto,
-        })
-        toast.success('Extrato compartilhado!')
-        return
-      } catch (err: unknown) {
-        if ((err as Error)?.name === 'AbortError') {
-          return // Usuário fechou o menu sem compartilhar
-        }
-        console.warn('[WebShare] Erro no compartilhamento nativo:', err)
-      }
+/**
+ * Gera e baixa o arquivo PDF do extrato no dispositivo
+ */
+export async function baixarExtratoPdf(
+  cliente: Cliente,
+  compras: Compra[],
+  pagamentos: Pagamento[],
+  opcoes?: OpcoesPix
+): Promise<File> {
+  toast.info('Gerando extrato em PDF...')
+  const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
+
+  const fileUrl = URL.createObjectURL(pdfFile)
+  const linkDownload = document.createElement('a')
+  linkDownload.href = fileUrl
+  linkDownload.download = pdfFile.name
+  document.body.appendChild(linkDownload)
+  linkDownload.click()
+  linkDownload.remove()
+  setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)
+
+  toast.success('Extrato PDF baixado com sucesso!')
+  return pdfFile
+}
+
+/**
+ * Compartilha o arquivo PDF diretamente pela folha nativa do celular (Android/iOS)
+ * e copia o texto do resumo para a Área de Transferência.
+ */
+export async function compartilharExtratoPdfNativo(
+  cliente: Cliente,
+  compras: Compra[],
+  pagamentos: Pagamento[],
+  opcoes?: OpcoesPix
+): Promise<boolean> {
+  toast.info('Gerando extrato em PDF...')
+  const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
+  const mensagemTexto = montarTextoResumoExtrato(cliente, compras, pagamentos, opcoes)
+
+  // O WhatsApp descarta legendas de documentos PDF na Intent do sistema operacional.
+  // Por isso, copiamos automaticamente o texto para a Área de Transferência para que o usuário
+  // possa colar com 1 toque caso escolha o WhatsApp na folha de compartilhamento.
+  let copiouTexto = false
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(mensagemTexto)
+      copiouTexto = true
     }
-
-    // 2. Se não suportar Web Share API (computador ou navegador limitado):
-    // Baixa o PDF no dispositivo
-    const fileUrl = URL.createObjectURL(pdfFile)
-    const linkDownload = document.createElement('a')
-    linkDownload.href = fileUrl
-    linkDownload.download = pdfFile.name
-    document.body.appendChild(linkDownload)
-    linkDownload.click()
-    linkDownload.remove()
-    setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)
-    mensagemTexto += `\n\n📄 O arquivo PDF com o extrato detalhado de todos os itens foi gerado. Estou enviando em anexo!`
+  } catch {
+    // clipboard opcional
   }
 
-  // 3. Monta link do WhatsApp com mensagem de texto
+  // Tenta compartilhamento nativo no celular (Android / iOS)
+  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+    try {
+      await navigator.share({
+        files: [pdfFile],
+        title: `Extrato NatFlow - ${cliente.nome}`,
+        text: mensagemTexto,
+      })
+      if (copiouTexto) {
+        toast.info('📋 Resumo copiado! Se enviou pelo WhatsApp, basta colar a mensagem no chat.')
+      } else {
+        toast.success('Extrato compartilhado com sucesso!')
+      }
+      return true
+    } catch (err: unknown) {
+      if ((err as Error)?.name === 'AbortError') {
+        return false // Usuário apenas cancelou o menu
+      }
+      console.warn('[WebShare] Erro no compartilhamento nativo:', err)
+    }
+  }
+
+  // Fallback: Download do PDF no aparelho/computador
+  const fileUrl = URL.createObjectURL(pdfFile)
+  const linkDownload = document.createElement('a')
+  linkDownload.href = fileUrl
+  linkDownload.download = pdfFile.name
+  document.body.appendChild(linkDownload)
+  linkDownload.click()
+  linkDownload.remove()
+  setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)
+  toast.success('Extrato PDF baixado!')
+  return true
+}
+
+/**
+ * Envia o resumo diretamente para o WhatsApp do cliente via URL api.whatsapp.com,
+ * com o texto e telefone pré-preenchidos, e baixa o PDF no dispositivo para anexar.
+ */
+export async function enviarExtratoWhatsApp(
+  cliente: Cliente,
+  compras: Compra[],
+  pagamentos: Pagamento[],
+  incluirPdf = true,
+  opcoes?: OpcoesPix
+): Promise<void> {
   const telLimpo = cliente.telefone.replace(/\D/g, '')
   if (!telLimpo || telLimpo.length < 10) {
     if (incluirPdf) {
-      toast.warning('O PDF foi baixado, mas o cliente não possui telefone válido para WhatsApp.')
+      toast.warning('O cliente não possui telefone válido para WhatsApp. Baixando apenas o PDF...')
+      await baixarExtratoPdf(cliente, compras, pagamentos, opcoes)
     } else {
       toast.warning('O cliente não possui telefone válido cadastrado para o WhatsApp.')
     }
     return
   }
 
+  let mensagemTexto = montarTextoResumoExtrato(cliente, compras, pagamentos, opcoes)
+
+  if (incluirPdf) {
+    await baixarExtratoPdf(cliente, compras, pagamentos, opcoes)
+    mensagemTexto += `\n\n📄 O arquivo PDF com o extrato detalhado de todos os itens foi baixado. Estou enviando em anexo!`
+  }
+
+  // Copia o texto para a Área de Transferência como garantia
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(mensagemTexto)
+    }
+  } catch {
+    // clipboard opcional
+  }
+
   const textoMsg = encodeURIComponent(mensagemTexto)
   const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
 
   window.open(urlWhats, '_blank')
-  toast.success(incluirPdf ? 'Extrato PDF gerado e WhatsApp aberto!' : 'WhatsApp aberto com o resumo!')
+  toast.success(incluirPdf ? 'PDF baixado e WhatsApp aberto com o resumo!' : 'WhatsApp aberto com o resumo!')
+}
+
+/**
+ * Abre modal com as opções de envio do extrato:
+ * 1. WhatsApp com Resumo completo pré-digitado + Download do PDF
+ * 2. Compartilhar Arquivo PDF nativo pelo celular (com resumo copiado para colar)
+ * 3. Apenas Baixar o arquivo PDF
+ */
+export function abrirModalOpcoesExtrato(
+  cliente: Cliente,
+  compras: Compra[],
+  pagamentos: Pagamento[],
+  opcoes?: OpcoesPix
+): void {
+  const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
+  const telLimpo = cliente.telefone.replace(/\D/g, '')
+  const temTelefone = telLimpo.length >= 10
+
+  const overlay = criarOverlay(`
+    <div class="space-y-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">📄 Extrato do Cliente</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">${escaparHTML(cliente.nome)}</p>
+        </div>
+        <button type="button" data-fechar class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg p-1" title="Fechar">✕</button>
+      </div>
+
+      <!-- Resumo Financeiro Rápido -->
+      <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs space-y-1.5">
+        <div class="flex justify-between font-bold">
+          <span class="text-slate-500 dark:text-slate-400">Total Comprado:</span>
+          <span class="text-slate-900 dark:text-white font-black">${formatarMoeda(totalCompras)}</span>
+        </div>
+        <div class="flex justify-between font-bold">
+          <span class="text-slate-500 dark:text-slate-400">Total Pago:</span>
+          <span class="text-emerald-600 dark:text-emerald-400 font-black">${formatarMoeda(totalPagamentos)}</span>
+        </div>
+        <div class="flex justify-between font-bold pt-1.5 border-t border-slate-200 dark:border-slate-700">
+          <span class="text-slate-700 dark:text-slate-300 font-extrabold">Saldo Atual:</span>
+          <span class="font-black ${saldoDevedor > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">
+            ${formatarMoeda(saldoDevedor)}
+          </span>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-600 dark:text-slate-300 font-bold">Escolha como deseja enviar:</p>
+
+      <div class="space-y-2">
+        <!-- Opção 1: WhatsApp Direto com Texto Pré-preenchido -->
+        <button type="button" id="btn-extrato-whats-direto"
+          class="w-full text-left p-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-[0.99] transition flex items-start gap-3">
+          <span class="text-2xl shrink-0">💬</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <span class="font-black text-xs sm:text-sm text-emerald-800 dark:text-emerald-300">Abrir WhatsApp com Resumo</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-black uppercase">Recomendado</span>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+              Abre direto na conversa de <strong>${escaparHTML(cliente.nome)}</strong> com o <strong>resumo financeiro e chave PIX já digitados</strong>, e baixa o PDF para você anexar no clipe 📎.
+            </p>
+            ${!temTelefone ? '<p class="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-1">⚠️ Cliente sem telefone cadastrado</p>' : ''}
+          </div>
+        </button>
+
+        <!-- Opção 2: Compartilhar Arquivo PDF no Celular (Nativo) -->
+        <button type="button" id="btn-extrato-share-nativo"
+          class="w-full text-left p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 active:scale-[0.99] transition flex items-start gap-3">
+          <span class="text-2xl shrink-0">📲</span>
+          <div class="min-w-0 flex-1">
+            <span class="font-black text-xs sm:text-sm text-slate-900 dark:text-white">Compartilhar Arquivo PDF (Celular)</span>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+              Abre a folha do celular para enviar o arquivo PDF direto para qualquer contato. <em>(O texto do resumo é copiado para você colar na conversa, pois o WhatsApp não anexa texto a PDFs nativamente).</em>
+            </p>
+          </div>
+        </button>
+
+        <!-- Opção 3: Baixar Apenas PDF -->
+        <button type="button" id="btn-extrato-apenas-baixar"
+          class="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-300 transition flex items-center gap-2.5">
+          <span class="text-base">⬇️</span>
+          <span>Apenas baixar arquivo PDF</span>
+        </button>
+      </div>
+    </div>
+  `)
+
+  const fechar = (): void => overlay.remove()
+
+  overlay.querySelector('[data-fechar]')?.addEventListener('click', fechar)
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) fechar()
+  })
+
+  overlay.querySelector('#btn-extrato-whats-direto')?.addEventListener('click', () => {
+    fechar()
+    void enviarExtratoWhatsApp(cliente, compras, pagamentos, true, opcoes)
+  })
+
+  overlay.querySelector('#btn-extrato-share-nativo')?.addEventListener('click', () => {
+    fechar()
+    void compartilharExtratoPdfNativo(cliente, compras, pagamentos, opcoes)
+  })
+
+  overlay.querySelector('#btn-extrato-apenas-baixar')?.addEventListener('click', () => {
+    fechar()
+    void baixarExtratoPdf(cliente, compras, pagamentos, opcoes)
+  })
 }
 
 /**

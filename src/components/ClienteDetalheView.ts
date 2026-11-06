@@ -24,7 +24,7 @@ import {
   valorParaInput,
 } from '@/utils/format'
 import { calcularResumo } from '@/utils/saldo'
-import { enviarExtratoWhatsApp, enviarLembreteCobrancaWhatsApp } from '@/utils/exportarPdf'
+import { abrirModalOpcoesExtrato, enviarLembreteCobrancaWhatsApp } from '@/utils/exportarPdf'
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
@@ -267,7 +267,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         chavePix: perfil?.chave_pix,
         nomeProfissional: perfil?.nome,
       }
-      enviarExtratoWhatsApp(cliente!, compras, pagamentos, true, opcoesPix)
+      abrirModalOpcoesExtrato(cliente!, compras, pagamentos, opcoesPix)
     })
 
     painelEl.querySelector('#btn-cobrar-whatsapp')?.addEventListener('click', () => {

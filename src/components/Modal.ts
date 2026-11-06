@@ -27,7 +27,7 @@ interface FormModalOpcoes {
   onSalvar: (valores: Record<string, string>) => Promise<void>
 }
 
-function criarOverlay(conteudo: string): HTMLDivElement {
+export function criarOverlay(conteudo: string): HTMLDivElement {
   const overlay = document.createElement('div')
   overlay.className =
     'fixed inset-0 z-[1000] bg-slate-950/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 animate-fade-in'
