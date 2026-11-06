@@ -194,3 +194,18 @@ export function nomeMes(mes: number): string {
 export function formatarMesAno(ano: number, mes: number): string {
   return `${nomeMes(mes)} de ${ano}`
 }
+
+/**
+ * Calcula a quantidade de dias de atraso a partir de uma data ISO (AAAA-MM-DD).
+ */
+export function calcularDiasAtraso(dataReferenciaISO?: string | null, dataHoje: Date = new Date()): number {
+  if (!dataReferenciaISO) return 0
+  const [ano, mes, dia] = dataReferenciaISO.slice(0, 10).split('-').map(Number)
+  if (!ano || !mes || !dia) return 0
+  const dataRef = new Date(ano, mes - 1, dia)
+  const hoje = new Date(dataHoje.getFullYear(), dataHoje.getMonth(), dataHoje.getDate())
+  dataRef.setHours(0, 0, 0, 0)
+  hoje.setHours(0, 0, 0, 0)
+  const diffMs = hoje.getTime() - dataRef.getTime()
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+}

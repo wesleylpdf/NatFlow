@@ -12,6 +12,7 @@ import { obterPerfilAtual } from '@/services/equipe'
 import { obterSugestoesCatalogo } from '@/services/catalogo'
 import type { Cliente, Compra, Pagamento, Autorizado } from '@/types'
 import {
+  calcularDiasAtraso,
   escaparHTML,
   formatarAutoriaResumida,
   formatarData,
@@ -52,7 +53,7 @@ function ordenarItens<T extends { data: string; valor: number; created_at?: stri
   return [...itens].sort((a, b) => {
     switch (ordem) {
       case 'data-asc':
-        return a.data.localeCompare(a.data)
+        return a.data.localeCompare(b.data)
       case 'data-desc':
         return b.data.localeCompare(a.data)
       case 'valor-asc':
@@ -141,7 +142,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     window.location.hash = `#/cliente/${seletor.value}`
   })
 
-  // ---------- Painel com saldo, autoria e botões WhatsApp ----------
+  // ---------- Painel com saldo, autoria, alerta de débito antigo e botões WhatsApp ----------
   function renderPainel(): void {
     const c = cliente!
     const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
@@ -153,6 +154,41 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         : saldoDevedor < 0
           ? 'text-sky-600 dark:text-sky-400'
           : 'text-emerald-600 dark:text-emerald-400'
+
+    // Cálculo do tempo de débito sem pagamentos
+    const ultimoPag = pagamentos.length > 0 ? pagamentos[0] : null
+    const primeiraComp = compras.length > 0 ? compras[compras.length - 1] : null
+    const dataBase = ultimoPag ? ultimoPag.data : (primeiraComp ? primeiraComp.data : c.created_at.slice(0, 10))
+    const diasAtraso = saldoDevedor > 0 ? calcularDiasAtraso(dataBase) : 0
+
+    let bannerAtraso = ''
+    if (diasAtraso >= 30) {
+      bannerAtraso = `
+        <div class="mb-4 p-3 rounded-2xl ${
+          diasAtraso >= 60
+            ? 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'
+            : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-200'
+        } border flex items-center justify-between gap-3 animate-fade-in">
+          <div class="flex items-center gap-2.5 text-xs font-bold">
+            <span class="text-xl shrink-0">${diasAtraso >= 60 ? '🚨' : '⏳'}</span>
+            <div>
+              <p class="font-black text-xs sm:text-sm ${
+                diasAtraso >= 60 ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'
+              }">
+                ${diasAtraso >= 60 ? 'Alerta Crítico: ' : 'Atenção: '}Saldo devedor pendente há ${diasAtraso} dias!
+              </p>
+              <p class="text-[11px] opacity-80 mt-0.5 font-medium">
+                ${
+                  ultimoPag
+                    ? `Último pagamento recebido em ${formatarData(ultimoPag.data)} (${formatarMoeda(ultimoPag.valor)}).`
+                    : 'Este cliente ainda não realizou nenhum pagamento.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      `
+    }
 
     const linkWhatsTelefone = whats && c.telefone
       ? `<a href="${whats}" target="_blank" rel="noopener"
@@ -171,7 +207,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       saldoDevedor > 0
         ? `<button id="btn-cobrar-whatsapp" type="button"
              class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-rose-500 hover:bg-rose-600 active:scale-95 text-white shadow-sm transition"
-             title="Enviar lembrete amigável de cobrança no WhatsApp com a chave PIX">
+             title="Enviar lembrete amigável de cobrança no WhatsApp com a chave PIX${diasAtraso >= 30 ? ` (Pendente há ${diasAtraso} dias)` : ''}">
              💬 Cobrar Saldo
            </button>`
         : ''
@@ -198,6 +234,8 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           </button>
         </div>
       </div>
+
+      ${bannerAtraso}
 
       <div class="grid grid-cols-3 gap-2.5 sm:gap-3">
         <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
@@ -497,7 +535,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     })
 
     produtoInput.addEventListener('blur', () => {
-      // Pequeno atraso para permitir clique nos botões
       setTimeout(() => {
         boxAutocomplete.classList.add('hidden')
       }, 150)

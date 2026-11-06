@@ -343,13 +343,15 @@ SELECT
   c.atualizado_em,
   COALESCE(cp.total, 0)::NUMERIC(12, 2) AS total_compras,
   COALESCE(pg.total, 0)::NUMERIC(12, 2) AS total_pagamentos,
-  (COALESCE(cp.total, 0) - COALESCE(pg.total, 0))::NUMERIC(12, 2) AS saldo_devedor
+  (COALESCE(cp.total, 0) - COALESCE(pg.total, 0))::NUMERIC(12, 2) AS saldo_devedor,
+  cp.ultima_data AS ultima_compra,
+  pg.ultima_data AS ultimo_pagamento
 FROM public.clientes c
 LEFT JOIN (
-  SELECT cliente_id, SUM(valor) AS total FROM public.compras GROUP BY cliente_id
+  SELECT cliente_id, SUM(valor) AS total, MAX(data) AS ultima_data FROM public.compras GROUP BY cliente_id
 ) cp ON cp.cliente_id = c.id
 LEFT JOIN (
-  SELECT cliente_id, SUM(valor) AS total FROM public.pagamentos GROUP BY cliente_id
+  SELECT cliente_id, SUM(valor) AS total, MAX(data) AS ultima_data FROM public.pagamentos GROUP BY cliente_id
 ) pg ON pg.cliente_id = c.id;
 
 GRANT SELECT ON public.clientes_saldo TO authenticated;

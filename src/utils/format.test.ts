@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  calcularDiasAtraso,
   escaparHTML,
   formatarAutoriaResumida,
   formatarData,
@@ -88,5 +89,15 @@ describe('formatadores', () => {
     expect(obterInfoFormaPagamento('credito').icone).toBe('💳')
     expect(obterInfoFormaPagamento(null).id).toBe('pix')
     expect(obterInfoFormaPagamento('desconhecido').id).toBe('outro')
+  })
+
+  it('calcularDiasAtraso', () => {
+    const hoje = new Date(2026, 10, 6) // 06/11/2026
+    expect(calcularDiasAtraso('2026-11-06', hoje)).toBe(0)
+    expect(calcularDiasAtraso('2026-11-05', hoje)).toBe(1)
+    expect(calcularDiasAtraso('2026-10-07', hoje)).toBe(30)
+    expect(calcularDiasAtraso('2026-09-07', hoje)).toBe(60)
+    expect(calcularDiasAtraso(null, hoje)).toBe(0)
+    expect(calcularDiasAtraso('data-invalida', hoje)).toBe(0)
   })
 })

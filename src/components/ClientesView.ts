@@ -10,6 +10,7 @@ import type { ClienteComSaldo, ResumoFinanceiro } from '@/types'
 import {
   escaparHTML,
   formatarAutoriaResumida,
+  formatarData,
   formatarMesAno,
   formatarMoeda,
   formatarTelefone,
@@ -17,7 +18,7 @@ import {
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
-type FiltroStatus = 'todos' | 'devedores' | 'em_dia'
+type FiltroStatus = 'todos' | 'devedores' | 'antigos' | 'em_dia'
 
 function normalizarBusca(texto: string): string {
   return texto
@@ -26,8 +27,22 @@ function normalizarBusca(texto: string): string {
     .toLowerCase()
 }
 
-function badgeSaldo(saldo: number): string {
+function badgeSaldo(saldo: number, diasAtraso: number = 0): string {
   if (saldo > 0) {
+    if (diasAtraso >= 60) {
+      return `
+        <span class="text-xs font-black px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 whitespace-nowrap inline-flex items-center gap-1.5" title="Débito crítico pendente há mais de 60 dias sem pagamentos">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+          🚨 Deve ${formatarMoeda(saldo)} • +60d
+        </span>`
+    }
+    if (diasAtraso >= 30) {
+      return `
+        <span class="text-xs font-black px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap inline-flex items-center gap-1.5" title="Débito pendente há mais de 30 dias sem pagamentos">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+          ⏳ Deve ${formatarMoeda(saldo)} • ${diasAtraso}d
+        </span>`
+    }
     return `<span class="text-xs font-black px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-300 border border-rose-500/20 whitespace-nowrap">Deve ${formatarMoeda(saldo)}</span>`
   }
   if (saldo < 0) {
@@ -66,7 +81,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     clientes = listaClientes
     resumoFin = resumoInicial
   } catch (e) {
-    // Se falhar o resumo, tenta pelo menos os clientes
     try {
       clientes = await listarClientesComSaldo()
     } catch (errClientes) {
@@ -131,13 +145,16 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           <span id="seta-clientes" class="text-xs text-slate-400 group-hover:text-emerald-500 transition-transform">▼</span>
         </button>
         <div id="corpo-clientes" class="hidden mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 animate-fade-in">
-          <!-- Filtros Rápidos -->
-          <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl mb-3 text-xs font-bold" role="group" aria-label="Filtrar por status">
+          <!-- Filtros Rápidos com Alerta de Débito Antigo -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl mb-3 text-xs font-bold" role="group" aria-label="Filtrar por status">
             <button type="button" data-filtro="todos" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
               ⚪ Todos <span id="filtro-count-todos" class="opacity-75 font-semibold text-[11px]"></span>
             </button>
             <button type="button" data-filtro="devedores" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
-              🔴 Com Débito <span id="filtro-count-devedores" class="opacity-75 font-semibold text-[11px]"></span>
+              🔴 Débitos <span id="filtro-count-devedores" class="opacity-75 font-semibold text-[11px]"></span>
+            </button>
+            <button type="button" data-filtro="antigos" class="btn-filtro py-2 px-1 rounded-xl transition text-center" title="Clientes com saldo devedor pendente há mais de 30 dias">
+              ⚠️ +30 Dias <span id="filtro-count-antigos" class="opacity-75 font-semibold text-[11px]"></span>
             </button>
             <button type="button" data-filtro="em_dia" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
               🟢 Em Dia <span id="filtro-count-emdia" class="opacity-75 font-semibold text-[11px]"></span>
@@ -197,7 +214,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     })
   })
 
-  // Event delegation nos botões de período do resumo (nunca se perde)
+  // Event delegation nos botões de período do resumo
   resumoEl.addEventListener('click', async e => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-acao]')
     if (!btn) return
@@ -241,6 +258,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   function renderResumo(): void {
     const aReceberGeral = clientes.reduce((acc, c) => acc + (c.saldo_devedor > 0 ? c.saldo_devedor : 0), 0)
     const devedoresGeral = clientes.filter(c => c.saldo_devedor > 0).length
+    const devedoresAntigosGeral = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
 
     const rotuloPeriodo =
       periodoTipo === 'tudo'
@@ -319,7 +337,9 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
           <span class="block text-[10px] text-slate-500 dark:text-slate-300 uppercase font-black tracking-wide">👥 A Receber</span>
           <span class="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate block">${formatarMoeda(aReceberGeral)}</span>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">${devedoresGeral} com débito</span>
+          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold block truncate">
+            ${devedoresGeral} devedores${devedoresAntigosGeral > 0 ? ` • <strong class="text-amber-600 dark:text-amber-400">${devedoresAntigosGeral} (+30d)</strong>` : ''}
+          </span>
         </div>
       </div>
 
@@ -358,13 +378,16 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   function renderLista(): void {
     const totalTodos = clientes.length
     const totalDevedores = clientes.filter(c => c.saldo_devedor > 0).length
+    const totalAntigos = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
     const totalEmDia = clientes.filter(c => c.saldo_devedor <= 0).length
 
     const countTodos = container.querySelector('#filtro-count-todos')
     const countDevedores = container.querySelector('#filtro-count-devedores')
+    const countAntigos = container.querySelector('#filtro-count-antigos')
     const countEmDia = container.querySelector('#filtro-count-emdia')
     if (countTodos) countTodos.textContent = `(${totalTodos})`
     if (countDevedores) countDevedores.textContent = `(${totalDevedores})`
+    if (countAntigos) countAntigos.textContent = `(${totalAntigos})`
     if (countEmDia) countEmDia.textContent = `(${totalEmDia})`
 
     // Estilização do filtro ativo vs inativo
@@ -383,6 +406,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     const filtrados = clientes.filter(c => {
       // Regra do filtro rápido
       if (filtroStatus === 'devedores' && c.saldo_devedor <= 0) return false
+      if (filtroStatus === 'antigos' && (c.saldo_devedor <= 0 || (c.dias_atraso || 0) < 30)) return false
       if (filtroStatus === 'em_dia' && c.saldo_devedor > 0) return false
 
       // Regra da busca
@@ -406,6 +430,8 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
       let mensagemVazia = 'Nenhum cliente encontrado.'
       if (termo) {
         mensagemVazia = 'Nenhum cliente encontrado para a busca digitada.'
+      } else if (filtroStatus === 'antigos') {
+        mensagemVazia = '🎉 Excelente! Nenhum cliente com débito pendente há mais de 30 dias.'
       } else if (filtroStatus === 'devedores') {
         mensagemVazia = '🎉 Que ótimo! Nenhum cliente com débito pendente no momento.'
       } else if (filtroStatus === 'em_dia') {
@@ -417,11 +443,40 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     }
 
     listaEl.innerHTML = filtrados
-      .map(
-        c => `
-        <li class="group flex items-center gap-2 bg-slate-50 hover:bg-emerald-50/60 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-3 pr-1.5 py-2">
+      .map(c => {
+        const dias = c.dias_atraso || 0
+        const temAtraso = c.saldo_devedor > 0 && dias >= 30
+
+        const avisoAtraso = temAtraso
+          ? `
+          <div class="mt-1 flex items-center gap-1.5 text-[11px] font-bold ${
+            dias >= 60 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
+          }">
+            <span>${dias >= 60 ? '🚨' : '⏳'}</span>
+            <span>Pendente há ${dias} dias ${
+              c.ultimo_pagamento
+                ? `(último pgto ${formatarData(c.ultimo_pagamento)})`
+                : '(sem nenhum pagamento registrado)'
+            }</span>
+          </div>`
+          : ''
+
+        return `
+        <li class="group flex items-center gap-2 bg-slate-50 hover:bg-emerald-50/60 dark:bg-slate-800/60 dark:hover:bg-slate-800 border ${
+          dias >= 60
+            ? 'border-rose-400/80 dark:border-rose-500/50 bg-rose-50/20'
+            : dias >= 30
+              ? 'border-amber-400/80 dark:border-amber-500/50 bg-amber-50/20'
+              : 'border-slate-200 dark:border-slate-700/80'
+        } rounded-2xl pl-3 pr-1.5 py-2 transition">
           <a href="#/cliente/${c.id}" class="flex-1 min-w-0 flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-black text-sm shrink-0">
+            <div class="w-9 h-9 rounded-full ${
+              dias >= 60
+                ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                : dias >= 30
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+            } flex items-center justify-center font-black text-sm shrink-0">
               ${escaparHTML(c.nome.trim().charAt(0).toUpperCase())}
             </div>
             <div class="min-w-0 flex-1">
@@ -431,13 +486,14 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
                 <span>•</span>
                 <span class="text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c)}</span>
               </div>
+              ${avisoAtraso}
             </div>
-            ${badgeSaldo(c.saldo_devedor)}
+            ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
           </a>
           <button data-editar="${c.id}" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
           <button data-excluir="${c.id}" class="${cls.btnIcone}" title="Excluir cliente">🗑️</button>
         </li>`
-      )
+      })
       .join('')
   }
 

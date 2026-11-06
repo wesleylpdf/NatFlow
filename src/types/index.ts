@@ -30,6 +30,10 @@ export interface ClienteComSaldo extends Cliente {
   total_compras: number
   total_pagamentos: number
   saldo_devedor: number
+  ultimo_pagamento?: string | null
+  ultima_compra?: string | null
+  primeira_compra?: string | null
+  dias_atraso?: number
 }
 
 /** Saída: produto comprado pelo cliente. */
