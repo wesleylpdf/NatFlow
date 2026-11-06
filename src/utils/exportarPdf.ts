@@ -230,7 +230,52 @@ export async function gerarExtratoPdf(
 }
 
 /**
- * Faz o download do PDF (se solicitado) e aciona o WhatsApp com mensagem estruturada
+ * Compartilha o arquivo PDF diretamente pela folha nativa do celular (Android/iOS)
+ * ou realiza o download caso o navegador não suporte Web Share API com arquivos.
+ */
+export async function compartilharExtratoPdfNativo(
+  cliente: Cliente,
+  compras: Compra[],
+  pagamentos: Pagamento[],
+  opcoes?: OpcoesPix
+): Promise<boolean> {
+  toast.info('Gerando extrato em PDF...')
+  const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
+
+  // 1. Tenta compartilhamento nativo no celular (Android / iOS)
+  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+    try {
+      await navigator.share({
+        files: [pdfFile],
+        title: `Extrato NatFlow - ${cliente.nome}`,
+        text: `Olá! Segue o extrato financeiro detalhado de ${cliente.nome} no NatFlow.`,
+      })
+      toast.success('Extrato compartilhado!')
+      return true
+    } catch (err: unknown) {
+      if ((err as Error)?.name === 'AbortError') {
+        return false // Usuário apenas cancelou o menu
+      }
+      console.warn('[WebShare] Erro no compartilhamento nativo:', err)
+    }
+  }
+
+  // 2. Fallback: Download do PDF no aparelho/computador
+  const fileUrl = URL.createObjectURL(pdfFile)
+  const linkDownload = document.createElement('a')
+  linkDownload.href = fileUrl
+  linkDownload.download = pdfFile.name
+  document.body.appendChild(linkDownload)
+  linkDownload.click()
+  linkDownload.remove()
+  setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)
+  toast.success('Extrato PDF baixado!')
+  return true
+}
+
+/**
+ * Envia o resumo e o extrato PDF: prioriza a folha nativa do celular (Web Share API)
+ * e faz fallback seguro baixando o PDF e abrindo o WhatsApp.
  */
 export async function enviarExtratoWhatsApp(
   cliente: Cliente,
@@ -240,46 +285,6 @@ export async function enviarExtratoWhatsApp(
   opcoes?: OpcoesPix
 ): Promise<void> {
   const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
-
-  if (incluirPdf) {
-    toast.info('Gerando extrato em PDF...')
-    const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
-
-    // 1. Download do PDF para o dispositivo
-    const fileUrl = URL.createObjectURL(pdfFile)
-    const linkDownload = document.createElement('a')
-    linkDownload.href = fileUrl
-    linkDownload.download = pdfFile.name
-    document.body.appendChild(linkDownload)
-    linkDownload.click()
-    linkDownload.remove()
-
-    // 2. Se o dispositivo suportar Web Share API com arquivos:
-    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-      try {
-        await navigator.share({
-          files: [pdfFile],
-          title: `Extrato NatFlow - ${cliente.nome}`,
-          text: `Olá, ${cliente.nome}! Segue o extrato detalhado das suas compras e pagamentos no NatFlow.`,
-        })
-        toast.success('Extrato compartilhado com sucesso!')
-        return
-      } catch {
-        // Segue para WhatsApp Web/App
-      }
-    }
-  }
-
-  // 3. Monta mensagem formatada para o WhatsApp
-  const telLimpo = cliente.telefone.replace(/\D/g, '')
-  if (!telLimpo || telLimpo.length < 10) {
-    if (incluirPdf) {
-      toast.warning('O PDF foi baixado, mas o cliente não possui telefone válido para WhatsApp.')
-    } else {
-      toast.warning('O cliente não possui telefone válido cadastrado para o WhatsApp.')
-    }
-    return
-  }
 
   // Normaliza espaços monetários para evitar artefatos de codificação em URLs
   const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
@@ -305,14 +310,57 @@ export async function enviarExtratoWhatsApp(
   }
 
   if (incluirPdf) {
+    toast.info('Gerando extrato em PDF...')
+    const pdfFile = await gerarExtratoPdf(cliente, compras, pagamentos, opcoes)
+
+    // 1. No celular (Android/iOS), se suportar Web Share API com arquivos:
+    // Abre a folha nativa com o arquivo PDF anexado e o texto da mensagem pré-preenchido!
+    if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      try {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Extrato NatFlow - ${cliente.nome}`,
+          text: mensagemTexto,
+        })
+        toast.success('Extrato compartilhado!')
+        return
+      } catch (err: unknown) {
+        if ((err as Error)?.name === 'AbortError') {
+          return // Usuário fechou o menu sem compartilhar
+        }
+        console.warn('[WebShare] Erro no compartilhamento nativo:', err)
+      }
+    }
+
+    // 2. Se não suportar Web Share API (computador ou navegador limitado):
+    // Baixa o PDF no dispositivo
+    const fileUrl = URL.createObjectURL(pdfFile)
+    const linkDownload = document.createElement('a')
+    linkDownload.href = fileUrl
+    linkDownload.download = pdfFile.name
+    document.body.appendChild(linkDownload)
+    linkDownload.click()
+    linkDownload.remove()
+    setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)
     mensagemTexto += `\n\n📄 O arquivo PDF com o extrato detalhado de todos os itens foi gerado. Estou enviando em anexo!`
+  }
+
+  // 3. Monta link do WhatsApp com mensagem de texto
+  const telLimpo = cliente.telefone.replace(/\D/g, '')
+  if (!telLimpo || telLimpo.length < 10) {
+    if (incluirPdf) {
+      toast.warning('O PDF foi baixado, mas o cliente não possui telefone válido para WhatsApp.')
+    } else {
+      toast.warning('O cliente não possui telefone válido cadastrado para o WhatsApp.')
+    }
+    return
   }
 
   const textoMsg = encodeURIComponent(mensagemTexto)
   const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
 
   window.open(urlWhats, '_blank')
-  toast.success(incluirPdf ? 'Extrato PDF baixado e WhatsApp aberto!' : 'WhatsApp aberto com o resumo!')
+  toast.success(incluirPdf ? 'Extrato PDF gerado e WhatsApp aberto!' : 'WhatsApp aberto com o resumo!')
 }
 
 /**
