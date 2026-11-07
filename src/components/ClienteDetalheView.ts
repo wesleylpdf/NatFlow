@@ -14,6 +14,7 @@ import type { Cliente, Compra, Pagamento, Autorizado } from '@/types'
 import {
   calcularDiasAtraso,
   escaparHTML,
+  extrairPrimeiroNome,
   formatarAutoriaResumida,
   formatarData,
   formatarMoeda,
@@ -403,9 +404,10 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
   function itemLista(opts: {
     id: string
     titulo: string
-    subtitulo: string
+    data: string
+    criado_por?: string | null
+    atualizado_por?: string | null
     badgeExtra?: string
-    autoria?: string
     valor: number
     cor: 'rose' | 'emerald'
     permiteRecibo?: boolean
@@ -417,22 +419,29 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       ? `<button data-recibo="${opts.id}" class="${cls.btnIcone} text-emerald-600 hover:text-emerald-700 dark:text-emerald-400" title="Enviar comprovante/recibo no WhatsApp">🧾</button>`
       : ''
 
+    const autor = extrairPrimeiroNome(opts.criado_por, mapaMembros)
+    const editor = opts.atualizado_por ? extrairPrimeiroNome(opts.atualizado_por, mapaMembros) : null
+    const textoAutoria = editor
+      ? `data ${formatarData(opts.data)}, Por ${autor} e Edit Por ${editor}`
+      : `data ${formatarData(opts.data)}, Por ${autor}`
+
     return `
-      <li class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-3 pr-1.5 py-2">
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2 flex-wrap">
+      <li class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-2.5 sm:px-3 sm:py-2.5 transition">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
             <p class="font-bold text-sm text-slate-900 dark:text-white truncate">${opts.titulo}</p>
             ${opts.badgeExtra ?? ''}
           </div>
-          <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-            <span>${opts.subtitulo}</span>
-            ${opts.autoria ? `<span>•</span><span class="text-[11px] text-slate-400 dark:text-slate-500">${opts.autoria}</span>` : ''}
+          <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <span class="font-black text-sm ${corValor} whitespace-nowrap">${sinal} ${formatarMoeda(opts.valor)}</span>
+            ${btnRecibo}
+            <button data-editar="${opts.id}" class="${cls.btnIcone}" title="Editar">✏️</button>
+            <button data-excluir="${opts.id}" class="${cls.btnIcone}" title="Excluir">🗑️</button>
           </div>
         </div>
-        <span class="font-black text-sm ${corValor} whitespace-nowrap">${sinal} ${formatarMoeda(opts.valor)}</span>
-        ${btnRecibo}
-        <button data-editar="${opts.id}" class="${cls.btnIcone}" title="Editar">✏️</button>
-        <button data-excluir="${opts.id}" class="${cls.btnIcone}" title="Excluir">🗑️</button>
+        <div class="mt-1 flex items-center text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+          <span>${textoAutoria}</span>
+        </div>
       </li>`
   }
 
@@ -549,8 +558,9 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           itemLista({
             id: c.id,
             titulo: escaparHTML(c.produto),
-            subtitulo: `📅 ${formatarData(c.data)}`,
-            autoria: formatarAutoriaResumida(c, mapaMembros),
+            data: c.data,
+            criado_por: c.criado_por,
+            atualizado_por: c.atualizado_por,
             valor: c.valor,
             cor: 'rose',
           })
@@ -917,9 +927,10 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           return itemLista({
             id: p.id,
             titulo: p.descricao ? escaparHTML(p.descricao) : 'Pagamento',
-            subtitulo: `📅 ${formatarData(p.data)}`,
+            data: p.data,
+            criado_por: p.criado_por,
+            atualizado_por: p.atualizado_por,
             badgeExtra: badgeForma,
-            autoria: formatarAutoriaResumida(p, mapaMembros),
             valor: p.valor,
             cor: 'emerald',
             permiteRecibo: true,
