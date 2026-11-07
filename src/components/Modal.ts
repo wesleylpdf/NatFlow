@@ -143,7 +143,11 @@ export function abrirFormModal(opcoes: FormModalOpcoes): void {
     }
   })
 
-  overlay.querySelector<HTMLInputElement>('input')?.focus()
+  // No desktop foca no primeiro input por praticidade; no celular/touch não foca para não abrir teclado virtual
+  const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
+  if (!ehMobile) {
+    overlay.querySelector<HTMLInputElement>('input')?.focus()
+  }
 }
 
 /**

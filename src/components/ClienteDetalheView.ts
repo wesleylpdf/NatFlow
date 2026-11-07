@@ -516,8 +516,11 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
               produtoInput.value = item.produto
               valorInput.value = valorParaInput(item.valorSugerido)
               boxAutocomplete.classList.add('hidden')
-              valorInput.focus()
-              valorInput.select()
+              const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
+              if (!ehMobile) {
+                valorInput.focus()
+                valorInput.select()
+              }
             }
           })
         })
@@ -555,7 +558,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         form.reset()
         dataInput.value = hojeISO()
         await recarregarLancamentos()
-        abaEl.querySelector<HTMLInputElement>('#compra-produto')?.focus()
       } catch (err) {
         toast.error(mensagemErro(err, 'Erro ao lançar produto'))
       } finally {
@@ -724,7 +726,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         dataInput.value = hojeISO()
         formaSelect.value = 'pix'
         await recarregarLancamentos()
-        abaEl.querySelector<HTMLInputElement>('#pagamento-valor')?.focus()
       } catch (err) {
         toast.error(mensagemErro(err, 'Erro ao lançar pagamento'))
       } finally {

@@ -189,18 +189,12 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   btnToggleCadastro.addEventListener('click', () => {
     const fechado = corpoCadastro.classList.toggle('hidden')
     setaCadastro.textContent = fechado ? '▼' : '▲'
-    if (!fechado) {
-      nomeInput.focus()
-    }
   })
 
-  // Toggle do acordeão: Clientes
+  // Toggle do acordeão: Clientes (não foca automaticamente para não levantar teclado no celular)
   btnToggleClientes.addEventListener('click', () => {
     const fechado = corpoClientes.classList.toggle('hidden')
     setaClientes.textContent = fechado ? '▼' : '▲'
-    if (!fechado) {
-      buscaInput.focus()
-    }
   })
 
   // Botões de filtro rápido da lista de clientes
