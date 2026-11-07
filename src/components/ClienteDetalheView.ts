@@ -818,7 +818,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     const { saldoDevedor } = calcularResumo(compras, pagamentos)
 
     abaEl.innerHTML = `
-      <form id="form-pagamento" novalidate class="grid grid-cols-2 sm:grid-cols-[1.2fr_1.3fr_1.2fr_1.8fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
+      <form id="form-pagamento" novalidate class="grid grid-cols-2 sm:grid-cols-[1.2fr_1.3fr_1.1fr_1.8fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
         <div>
           <label class="${cls.label}" for="pagamento-valor">Valor pago (R$)</label>
           <input id="pagamento-valor" type="text" inputmode="decimal" class="${cls.input}" placeholder="0,00" autocomplete="off">
@@ -837,7 +837,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           <label class="${cls.label}" for="pagamento-data">Data</label>
           <input id="pagamento-data" type="date" class="${cls.input}" value="${hojeISO()}">
         </div>
-        <div class="col-span-2 sm:col-span-1">
+        <div>
           <label class="${cls.label}" for="pagamento-descricao">Descrição (opcional)</label>
           <input id="pagamento-descricao" type="text" class="${cls.input}" placeholder="Ex: Parcela 1..." autocomplete="off" maxlength="200">
         </div>
@@ -848,7 +848,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           saldoDevedor > 0
             ? `
             <div class="col-span-2 sm:col-span-5 flex items-center gap-2 flex-wrap pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
-              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">Atalhos rápidos:</span>
               <button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1">
                 <span>⚡ Quitar Saldo Total (${formatarMoeda(saldoDevedor)})</span>
               </button>
