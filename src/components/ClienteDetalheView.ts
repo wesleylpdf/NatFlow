@@ -1,6 +1,6 @@
 import { abrirFormModal, confirmar } from '@/components/Modal'
 import { abrirEdicaoCliente } from '@/components/ClientesView'
-import { listarClientes } from '@/services/clientes'
+import { definirDataPromessa, listarClientes } from '@/services/clientes'
 import { atualizarCompra, criarCompra, excluirCompra, listarCompras } from '@/services/compras'
 import {
   atualizarPagamento,
@@ -20,11 +20,16 @@ import {
   hojeISO,
   linkWhatsApp,
   obterInfoFormaPagamento,
+  obterStatusPromessa,
   parseValor,
   valorParaInput,
 } from '@/utils/format'
 import { calcularResumo } from '@/utils/saldo'
-import { abrirModalOpcoesExtrato, enviarLembreteCobrancaWhatsApp } from '@/utils/exportarPdf'
+import {
+  abrirModalOpcoesExtrato,
+  enviarLembreteCobrancaWhatsApp,
+  enviarReciboPagamentoWhatsApp,
+} from '@/utils/exportarPdf'
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
@@ -251,7 +256,81 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           <span class="text-base sm:text-lg font-black ${corSaldo} truncate block">${formatarMoeda(Math.abs(saldoDevedor))}</span>
         </div>
       </div>
+
+      ${
+        saldoDevedor > 0
+          ? (() => {
+              const infoPromessa = obterStatusPromessa(c.data_promessa)
+              if (infoPromessa) {
+                return `
+                  <div class="mt-3 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="text-xs font-black px-2.5 py-1 rounded-xl border ${infoPromessa.corBadge}">
+                        ${infoPromessa.rotulo}
+                      </span>
+                      <span class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline">Data de pagamento combinada</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                      <button id="btn-alterar-promessa" class="${cls.btnIcone}" title="Alterar data combinada">✏️</button>
+                      <button id="btn-remover-promessa" class="${cls.btnIcone}" title="Remover data combinada">✕</button>
+                    </div>
+                  </div>
+                `
+              }
+              return `
+                <div class="mt-3 flex items-center justify-between gap-2 p-2 rounded-2xl bg-slate-50/70 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10">
+                  <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Nenhuma data de acerto combinada</span>
+                  <button id="btn-agendar-promessa" type="button" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-1">
+                    🗓️ Combinar Data de Pagamento
+                  </button>
+                </div>
+              `
+            })()
+          : ''
+      }
     `
+
+    function abrirModalPromessa(): void {
+      abrirFormModal({
+        titulo: 'Combinar Data de Pagamento',
+        campos: [
+          {
+            nome: 'data_promessa',
+            label: 'Data prevista para pagamento',
+            tipo: 'date',
+            valor: c.data_promessa || hojeISO(),
+            obrigatorio: true,
+          },
+        ],
+        onSalvar: async valores => {
+          const novaData = validarData(valores.data_promessa)
+          await definirDataPromessa(c.id, novaData)
+          c.data_promessa = novaData
+          toast.success('Data de pagamento combinada com sucesso!')
+          renderPainel()
+        },
+      })
+    }
+
+    painelEl.querySelector('#btn-agendar-promessa')?.addEventListener('click', abrirModalPromessa)
+    painelEl.querySelector('#btn-alterar-promessa')?.addEventListener('click', abrirModalPromessa)
+
+    painelEl.querySelector('#btn-remover-promessa')?.addEventListener('click', async () => {
+      const ok = await confirmar({
+        titulo: 'Remover data de acerto',
+        mensagem: 'Deseja remover a data de pagamento combinada com este cliente?',
+        textoConfirmar: 'Remover',
+      })
+      if (!ok) return
+      try {
+        await definirDataPromessa(c.id, null)
+        c.data_promessa = null
+        toast.success('Data combinada removida.')
+        renderPainel()
+      } catch (err) {
+        toast.error(mensagemErro(err, 'Erro ao remover data combinada'))
+      }
+    })
 
     painelEl.querySelector('#btn-editar-cliente')?.addEventListener('click', () => {
       abrirEdicaoCliente(cliente!, async () => {
@@ -326,10 +405,15 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     autoria?: string
     valor: number
     cor: 'rose' | 'emerald'
+    permiteRecibo?: boolean
   }): string {
     const corValor =
       opts.cor === 'rose' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
     const sinal = opts.cor === 'rose' ? '−' : '+'
+    const btnRecibo = opts.permiteRecibo
+      ? `<button data-recibo="${opts.id}" class="${cls.btnIcone} text-emerald-600 hover:text-emerald-700 dark:text-emerald-400" title="Enviar comprovante/recibo no WhatsApp">🧾</button>`
+      : ''
+
     return `
       <li class="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-3 pr-1.5 py-2">
         <div class="min-w-0 flex-1">
@@ -343,6 +427,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           </div>
         </div>
         <span class="font-black text-sm ${corValor} whitespace-nowrap">${sinal} ${formatarMoeda(opts.valor)}</span>
+        ${btnRecibo}
         <button data-editar="${opts.id}" class="${cls.btnIcone}" title="Editar">✏️</button>
         <button data-excluir="${opts.id}" class="${cls.btnIcone}" title="Excluir">🗑️</button>
       </li>`
@@ -692,6 +777,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
             autoria: formatarAutoriaResumida(p),
             valor: p.valor,
             cor: 'emerald',
+            permiteRecibo: true,
           })
         })
         .join('')
@@ -734,6 +820,20 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     })
 
     abaEl.querySelector('#lista-pagamentos')!.addEventListener('click', async e => {
+      const btnRecibo = (e.target as HTMLElement).closest<HTMLElement>('[data-recibo]')
+      if (btnRecibo) {
+        const id = btnRecibo.dataset.recibo!
+        const pagamento = pagamentos.find(p => p.id === id)
+        if (!pagamento || !cliente) return
+        const { saldoDevedor } = calcularResumo(compras, pagamentos)
+        const opcoesPix = {
+          chavePix: perfil?.chave_pix,
+          nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
+        }
+        enviarReciboPagamentoWhatsApp(cliente, pagamento, saldoDevedor, opcoesPix)
+        return
+      }
+
       const alvo = (e.target as HTMLElement).closest<HTMLElement>('[data-editar],[data-excluir]')
       if (!alvo) return
       const id = alvo.dataset.editar ?? alvo.dataset.excluir!

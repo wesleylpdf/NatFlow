@@ -25,6 +25,7 @@ export interface Cliente extends AutoriaCampos {
   id: string
   nome: string
   telefone: string
+  data_promessa?: string | null
 }
 
 export interface ClienteComSaldo extends Cliente {

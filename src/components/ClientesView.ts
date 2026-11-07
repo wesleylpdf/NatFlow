@@ -14,6 +14,7 @@ import {
   formatarMesAno,
   formatarMoeda,
   formatarTelefone,
+  obterStatusPromessa,
 } from '@/utils/format'
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
@@ -440,6 +441,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
       .map(c => {
         const dias = c.dias_atraso || 0
         const temAtraso = c.saldo_devedor > 0 && dias >= 30
+        const infoPromessa = c.saldo_devedor > 0 ? obterStatusPromessa(c.data_promessa) : null
 
         const avisoAtraso = temAtraso
           ? `
@@ -452,6 +454,15 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
                 ? `(último pgto ${formatarData(c.ultimo_pagamento)})`
                 : '(sem nenhum pagamento registrado)'
             }</span>
+          </div>`
+          : ''
+
+        const badgePromessa = infoPromessa
+          ? `
+          <div class="mt-1">
+            <span class="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full border ${infoPromessa.corBadge}">
+              ${infoPromessa.rotulo}
+            </span>
           </div>`
           : ''
 
@@ -481,6 +492,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
                 <span class="text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c)}</span>
               </div>
               ${avisoAtraso}
+              ${badgePromessa}
             </div>
             ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
           </a>

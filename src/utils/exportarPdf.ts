@@ -562,6 +562,10 @@ export function enviarLembreteCobrancaWhatsApp(
     `Passando para enviar o lembrete do seu saldo em aberto no *NatFlow*:\n\n` +
     `📌 Valor pendente: *${formatarBRL(saldoDevedor)}*`
 
+  if (cliente.data_promessa) {
+    msg += `\n🗓️ Data combinada para acerto: *${formatarData(cliente.data_promessa)}*`
+  }
+
   if (opcoes?.chavePix) {
     msg += `\n🔑 Chave PIX: *${opcoes.chavePix}*`
     if (opcoes.nomeProfissional) {
@@ -575,4 +579,58 @@ export function enviarLembreteCobrancaWhatsApp(
   const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
   window.open(urlWhats, '_blank')
   toast.success('WhatsApp aberto com lembrete de cobrança!')
+}
+
+/**
+ * Envia um recibo/comprovante individual de pagamento pelo WhatsApp com detalhes,
+ * forma de pagamento e saldo restante atualizado.
+ */
+export function enviarReciboPagamentoWhatsApp(
+  cliente: Cliente,
+  pagamento: Pagamento,
+  saldoAtual: number,
+  opcoes?: OpcoesPix
+): void {
+  const telLimpo = cliente.telefone.replace(/\D/g, '')
+  if (!telLimpo || telLimpo.length < 10) {
+    toast.warning('O cliente não possui telefone válido cadastrado para o WhatsApp.')
+    return
+  }
+
+  const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
+  const formaInfo = obterInfoFormaPagamento(pagamento.forma_pagamento)
+
+  let msg = `🧾 *COMPROVANTE DE PAGAMENTO*\n`
+  msg += `━━━━━━━━━━━━━━━━━━━━━\n`
+  msg += `👤 *Cliente:* ${cliente.nome}\n`
+  msg += `💰 *Valor Recebido:* *${formatarBRL(pagamento.valor)}*\n`
+  msg += `📅 *Data:* ${formatarData(pagamento.data)}\n`
+  msg += `💳 *Forma de Pagamento:* ${formaInfo.icone} ${formaInfo.label}\n`
+  if (pagamento.descricao && pagamento.descricao.trim()) {
+    msg += `📝 *Descrição:* ${pagamento.descricao.trim()}\n`
+  }
+  msg += `━━━━━━━━━━━━━━━━━━━━━\n`
+
+  if (saldoAtual <= 0) {
+    msg += `✅ *Situação da Conta:* 100% quitada! Muito obrigado(a)! 🎉\n`
+  } else {
+    msg += `📌 *Saldo Restante em Aberto:* *${formatarBRL(saldoAtual)}*\n`
+    if (cliente.data_promessa) {
+      msg += `🗓️ *Próximo Vencimento / Acerto:* ${formatarData(cliente.data_promessa)}\n`
+    }
+  }
+
+  if (opcoes?.nomeProfissional || opcoes?.chavePix) {
+    msg += `\n*Emitido por:* ${opcoes.nomeProfissional || 'NatFlow'}`
+    if (opcoes.chavePix) {
+      msg += `\n🔑 Chave PIX: ${opcoes.chavePix}`
+    }
+  }
+
+  msg += `\n\nMuito obrigado(a) pela preferência! Ficamos à disposição. ✨`
+
+  const textoMsg = encodeURIComponent(msg)
+  const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
+  window.open(urlWhats, '_blank')
+  toast.success('Comprovante de pagamento aberto no WhatsApp!')
 }

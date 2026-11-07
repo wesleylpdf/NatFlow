@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcularDiasAtraso,
+  obterStatusPromessa,
   escaparHTML,
   formatarAutoriaResumida,
   formatarData,
@@ -99,5 +100,23 @@ describe('formatadores', () => {
     expect(calcularDiasAtraso('2026-09-07', hoje)).toBe(60)
     expect(calcularDiasAtraso(null, hoje)).toBe(0)
     expect(calcularDiasAtraso('data-invalida', hoje)).toBe(0)
+  })
+
+  it('obterStatusPromessa', () => {
+    const hoje = '2026-11-06'
+    expect(obterStatusPromessa(null, hoje)).toBeNull()
+    expect(obterStatusPromessa('data-invalida', hoje)).toBeNull()
+
+    const hojeRes = obterStatusPromessa('2026-11-06', hoje)
+    expect(hojeRes?.status).toBe('vence_hoje')
+    expect(hojeRes?.rotulo).toBe('⏰ Promessa Vence Hoje!')
+
+    const vencidaRes = obterStatusPromessa('2026-11-01', hoje)
+    expect(vencidaRes?.status).toBe('vencida')
+    expect(vencidaRes?.rotulo).toContain('🚨 Promessa Vencida em 01/11/2026')
+
+    const futuraRes = obterStatusPromessa('2026-11-15', hoje)
+    expect(futuraRes?.status).toBe('a_vencer')
+    expect(futuraRes?.rotulo).toContain('🗓️ Acerto: 15/11/2026')
   })
 })

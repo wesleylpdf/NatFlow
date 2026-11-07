@@ -209,3 +209,44 @@ export function calcularDiasAtraso(dataReferenciaISO?: string | null, dataHoje: 
   const diffMs = hoje.getTime() - dataRef.getTime()
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
 }
+
+export type StatusPromessa = 'vence_hoje' | 'vencida' | 'a_vencer'
+
+export interface InfoStatusPromessa {
+  status: StatusPromessa
+  rotulo: string
+  corBadge: string
+}
+
+/**
+ * Retorna o status e badge visual para uma data de promessa de pagamento.
+ */
+export function obterStatusPromessa(
+  dataPromessa?: string | null,
+  hojeRef: string = hojeISO()
+): InfoStatusPromessa | null {
+  if (!dataPromessa) return null
+  const dataLimpa = dataPromessa.slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataLimpa)) return null
+
+  if (dataLimpa === hojeRef) {
+    return {
+      status: 'vence_hoje',
+      rotulo: '⏰ Promessa Vence Hoje!',
+      corBadge: 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30',
+    }
+  } else if (dataLimpa < hojeRef) {
+    return {
+      status: 'vencida',
+      rotulo: `🚨 Promessa Vencida em ${formatarData(dataLimpa)}`,
+      corBadge: 'bg-rose-500/15 text-rose-800 dark:text-rose-300 border-rose-500/30',
+    }
+  } else {
+    return {
+      status: 'a_vencer',
+      rotulo: `🗓️ Acerto: ${formatarData(dataLimpa)}`,
+      corBadge: 'bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/30',
+    }
+  }
+}
+
