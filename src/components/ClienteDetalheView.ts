@@ -477,25 +477,30 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     return `<li class="text-center py-6 text-sm text-slate-500 dark:text-slate-400">${texto}</li>`
   }
 
-  // ---------- Aba: Produtos comprados (saídas) com Autocomplete ----------
+  // ---------- Aba: Produtos comprados (saídas) com Autocomplete e Carrinho Rápido ----------
   function renderAbaCompras(): void {
     abaEl.innerHTML = `
-      <form id="form-compra" novalidate class="grid grid-cols-2 sm:grid-cols-[2fr_1fr_1fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 relative">
-        <div class="col-span-2 sm:col-span-1 relative">
-          <label class="${cls.label}" for="compra-produto">Produto / Serviço</label>
-          <input id="compra-produto" type="text" class="${cls.input}" placeholder="Ex: Creme hidratante, Design..." autocomplete="off" maxlength="160">
-          <div id="autocomplete-produtos" class="hidden absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-56 overflow-y-auto p-1.5 space-y-1"></div>
+      <form id="form-compra" novalidate class="mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 space-y-2.5">
+        <div id="container-itens-compra" class="space-y-2"></div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-700/60">
+          <button type="button" id="btn-adicionar-produto" class="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition py-1.5 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 w-fit">
+            <span>➕ Adicionar outro produto</span>
+          </button>
+          <div class="flex items-center gap-2">
+            <label class="${cls.label} whitespace-nowrap mb-0" for="compra-data">Data:</label>
+            <input id="compra-data" type="date" class="${cls.input} text-xs py-1.5 w-auto font-semibold" value="${hojeISO()}">
+          </div>
         </div>
-        <div>
-          <label class="${cls.label}" for="compra-valor">Valor (R$)</label>
-          <input id="compra-valor" type="text" inputmode="decimal" class="${cls.input}" placeholder="0,00" autocomplete="off">
-        </div>
-        <div>
-          <label class="${cls.label}" for="compra-data">Data</label>
-          <input id="compra-data" type="date" class="${cls.input}" value="${hojeISO()}">
-        </div>
-        <div class="col-span-2 sm:col-span-1 flex items-end">
-          <button type="submit" class="${cls.btnPrimario} w-full">Lançar</button>
+
+        <div class="flex items-center justify-between gap-3 pt-1">
+          <div id="resumo-carrinho" class="text-xs font-extrabold text-slate-700 dark:text-slate-300">
+            Total: <span id="carrinho-total" class="text-rose-600 dark:text-rose-400 font-black text-sm">R$ 0,00</span>
+            <span id="carrinho-qtd" class="text-[11px] text-slate-400 font-normal ml-1">(1 item)</span>
+          </div>
+          <button type="submit" id="btn-submit-compra" class="${cls.btnPrimario} text-xs py-2.5 px-4 font-black">
+            Lançar Produto
+          </button>
         </div>
       </form>
 
@@ -554,99 +559,214 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     atualizarListaCompras()
 
     const form = abaEl.querySelector<HTMLFormElement>('#form-compra')!
-    const produtoInput = abaEl.querySelector<HTMLInputElement>('#compra-produto')!
-    const valorInput = abaEl.querySelector<HTMLInputElement>('#compra-valor')!
+    const containerItens = abaEl.querySelector<HTMLElement>('#container-itens-compra')!
+    const btnAdicionar = abaEl.querySelector<HTMLButtonElement>('#btn-adicionar-produto')!
     const dataInput = abaEl.querySelector<HTMLInputElement>('#compra-data')!
-    const boxAutocomplete = abaEl.querySelector<HTMLElement>('#autocomplete-produtos')!
+    const carrinhoTotalEl = abaEl.querySelector<HTMLElement>('#carrinho-total')!
+    const carrinhoQtdEl = abaEl.querySelector<HTMLElement>('#carrinho-qtd')!
+    const btnSubmit = abaEl.querySelector<HTMLButtonElement>('#btn-submit-compra')!
 
-    // Autocomplete do catálogo
-    async function renderSugestoes(termo: string): Promise<void> {
-      try {
-        const sugestoes = await obterSugestoesCatalogo(termo)
-        if (sugestoes.length === 0) {
-          boxAutocomplete.classList.add('hidden')
-          boxAutocomplete.innerHTML = ''
-          return
+    let contadorLinha = 0
+
+    function atualizarTotaisCarrinho(): void {
+      const linhas = containerItens.querySelectorAll<HTMLElement>('.item-compra-linha')
+      let total = 0
+      linhas.forEach(l => {
+        const valInput = l.querySelector<HTMLInputElement>('.input-valor')
+        if (valInput && valInput.value) {
+          const v = parseValor(valInput.value)
+          if (!isNaN(v) && v > 0) total += v
         }
+      })
 
-        boxAutocomplete.innerHTML = `
-          <div class="px-2 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-            💡 Sugestões mais usadas
-          </div>
-          ${sugestoes
-            .map(
-              (s, i) => `
-            <button type="button" data-idx="${i}" class="btn-sugestao w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-slate-800 transition flex items-center justify-between group">
-              <div class="min-w-0 pr-2">
-                <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate block">${escaparHTML(s.produto)}</span>
-                <span class="text-[10px] text-slate-400 dark:text-slate-500">usado ${s.frequencia}x</span>
-              </div>
-              <span class="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/20 px-2 py-0.5 rounded-lg shrink-0">
-                ${formatarMoeda(s.valorSugerido)}
-              </span>
-            </button>
-          `
-            )
-            .join('')}
-        `
+      carrinhoTotalEl.textContent = formatarMoeda(total)
+      carrinhoQtdEl.textContent = `(${linhas.length} ${linhas.length === 1 ? 'item' : 'itens'})`
+      btnSubmit.textContent = linhas.length === 1 ? 'Lançar Produto' : `Lançar ${linhas.length} Produtos`
 
-        boxAutocomplete.classList.remove('hidden')
-
-        boxAutocomplete.querySelectorAll<HTMLButtonElement>('.btn-sugestao').forEach(btn => {
-          btn.addEventListener('mousedown', e => {
-            e.preventDefault()
-            const idx = Number(btn.dataset.idx)
-            const item = sugestoes[idx]
-            if (item) {
-              produtoInput.value = item.produto
-              valorInput.value = valorParaInput(item.valorSugerido)
-              boxAutocomplete.classList.add('hidden')
-              const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
-              if (!ehMobile) {
-                valorInput.focus()
-                valorInput.select()
-              }
-            }
-          })
-        })
-      } catch {
-        boxAutocomplete.classList.add('hidden')
-      }
+      // Oculta botão de remover se houver apenas 1 linha
+      linhas.forEach(l => {
+        const btnRemover = l.querySelector<HTMLButtonElement>('.btn-remover-linha')
+        if (btnRemover) {
+          if (linhas.length > 1) {
+            btnRemover.classList.remove('invisible')
+          } else {
+            btnRemover.classList.add('invisible')
+          }
+        }
+      })
     }
 
-    produtoInput.addEventListener('input', () => {
-      renderSugestoes(produtoInput.value)
-    })
+    function criarLinhaProduto(): HTMLElement {
+      contadorLinha++
+      const linhaId = contadorLinha
+      const linha = document.createElement('div')
+      linha.className = 'item-compra-linha grid grid-cols-2 sm:grid-cols-[2fr_1fr_auto] gap-2 p-2 bg-white dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-700/60 relative'
+      linha.dataset.id = String(linhaId)
+      linha.innerHTML = `
+        <div class="col-span-2 sm:col-span-1 relative">
+          <label class="${cls.label} text-[10px] mb-1">Produto / Serviço</label>
+          <input type="text" class="input-produto ${cls.input} text-xs py-1.5" placeholder="Ex: Creme hidratante, Design..." autocomplete="off" maxlength="160">
+          <div class="box-autocomplete hidden absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-52 overflow-y-auto p-1.5 space-y-1"></div>
+        </div>
+        <div>
+          <label class="${cls.label} text-[10px] mb-1">Valor (R$)</label>
+          <input type="text" inputmode="decimal" class="input-valor ${cls.input} text-xs py-1.5" placeholder="0,00" autocomplete="off">
+        </div>
+        <div class="col-span-2 sm:col-span-1 flex items-end justify-end">
+          <button type="button" class="btn-remover-linha ${cls.btnIcone} text-slate-400 hover:text-rose-600" title="Remover item">✕</button>
+        </div>
+      `
 
-    produtoInput.addEventListener('focus', () => {
-      renderSugestoes(produtoInput.value)
-    })
+      const prodInput = linha.querySelector<HTMLInputElement>('.input-produto')!
+      const valInput = linha.querySelector<HTMLInputElement>('.input-valor')!
+      const boxAuto = linha.querySelector<HTMLElement>('.box-autocomplete')!
+      const btnRemover = linha.querySelector<HTMLButtonElement>('.btn-remover-linha')!
 
-    produtoInput.addEventListener('blur', () => {
-      setTimeout(() => {
-        boxAutocomplete.classList.add('hidden')
-      }, 150)
+      async function renderSugestoesLinha(termo: string): Promise<void> {
+        try {
+          const sugestoes = await obterSugestoesCatalogo(termo)
+          if (sugestoes.length === 0) {
+            boxAuto.classList.add('hidden')
+            boxAuto.innerHTML = ''
+            return
+          }
+
+          boxAuto.innerHTML = `
+            <div class="px-2 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              💡 Sugestões mais usadas
+            </div>
+            ${sugestoes
+              .map(
+                (s, i) => `
+              <button type="button" data-idx="${i}" class="btn-sugestao w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-slate-800 transition flex items-center justify-between group">
+                <div class="min-w-0 pr-2">
+                  <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate block">${escaparHTML(s.produto)}</span>
+                  <span class="text-[10px] text-slate-400 dark:text-slate-500">usado ${s.frequencia}x</span>
+                </div>
+                <span class="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/20 px-2 py-0.5 rounded-lg shrink-0">
+                  ${formatarMoeda(s.valorSugerido)}
+                </span>
+              </button>
+            `
+              )
+              .join('')}
+          `
+
+          boxAuto.classList.remove('hidden')
+
+          boxAuto.querySelectorAll<HTMLButtonElement>('.btn-sugestao').forEach(btn => {
+            btn.addEventListener('mousedown', e => {
+              e.preventDefault()
+              const idx = Number(btn.dataset.idx)
+              const item = sugestoes[idx]
+              if (item) {
+                prodInput.value = item.produto
+                valInput.value = valorParaInput(item.valorSugerido)
+                boxAuto.classList.add('hidden')
+                atualizarTotaisCarrinho()
+                const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
+                if (!ehMobile) {
+                  valInput.focus()
+                  valInput.select()
+                }
+              }
+            })
+          })
+        } catch {
+          boxAuto.classList.add('hidden')
+        }
+      }
+
+      prodInput.addEventListener('input', () => {
+        renderSugestoesLinha(prodInput.value)
+      })
+
+      prodInput.addEventListener('focus', () => {
+        renderSugestoesLinha(prodInput.value)
+      })
+
+      prodInput.addEventListener('blur', () => {
+        setTimeout(() => {
+          boxAuto.classList.add('hidden')
+        }, 150)
+      })
+
+      valInput.addEventListener('input', () => {
+        atualizarTotaisCarrinho()
+      })
+
+      btnRemover.addEventListener('click', () => {
+        linha.remove()
+        atualizarTotaisCarrinho()
+      })
+
+      return linha
+    }
+
+    function reiniciarCarrinho(): void {
+      containerItens.innerHTML = ''
+      containerItens.appendChild(criarLinhaProduto())
+      dataInput.value = hojeISO()
+      atualizarTotaisCarrinho()
+    }
+
+    reiniciarCarrinho()
+
+    btnAdicionar.addEventListener('click', () => {
+      const novaLinha = criarLinhaProduto()
+      containerItens.appendChild(novaLinha)
+      atualizarTotaisCarrinho()
+      const novoInput = novaLinha.querySelector<HTMLInputElement>('.input-produto')
+      const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
+      if (!ehMobile && novoInput) {
+        novoInput.focus()
+      }
     })
 
     form.addEventListener('submit', async e => {
       e.preventDefault()
-      boxAutocomplete.classList.add('hidden')
-      const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
+      const linhas = containerItens.querySelectorAll<HTMLElement>('.item-compra-linha')
+      const itens: { produto: string; valor: number }[] = []
+
+      for (let i = 0; i < linhas.length; i++) {
+        const l = linhas[i]
+        const prod = l.querySelector<HTMLInputElement>('.input-produto')!
+        const val = l.querySelector<HTMLInputElement>('.input-valor')!
+        const nome = prod.value.trim()
+        if (!nome) {
+          toast.warning(`Informe o nome do produto no item ${i + 1}`)
+          prod.focus()
+          return
+        }
+        const valor = validarValor(val.value)
+        itens.push({ produto: nome, valor })
+      }
+
+      const data = validarData(dataInput.value)
+      btnSubmit.disabled = true
+
       try {
-        const produto = produtoInput.value.trim()
-        if (!produto) throw new Error('Informe o nome do produto')
-        const valor = validarValor(valorInput.value)
-        const data = validarData(dataInput.value)
-        btn.disabled = true
-        await criarCompra({ cliente_id: clienteId, produto, valor, data })
-        toast.success('Produto lançado com sucesso!')
-        form.reset()
-        dataInput.value = hojeISO()
+        await Promise.all(
+          itens.map(item =>
+            criarCompra({
+              cliente_id: clienteId,
+              produto: item.produto,
+              valor: item.valor,
+              data,
+            })
+          )
+        )
+        toast.success(
+          itens.length > 1
+            ? `${itens.length} produtos lançados com sucesso!`
+            : 'Produto lançado com sucesso!'
+        )
+        reiniciarCarrinho()
         await recarregarLancamentos()
       } catch (err) {
-        toast.error(mensagemErro(err, 'Erro ao lançar produto'))
+        toast.error(mensagemErro(err, 'Erro ao lançar produtos'))
       } finally {
-        btn.disabled = false
+        btnSubmit.disabled = false
       }
     })
 
@@ -695,6 +815,8 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
   // ---------- Aba: Pagamentos (entradas) com Forma de Pagamento ----------
   function renderAbaPagamentos(): void {
+    const { saldoDevedor } = calcularResumo(compras, pagamentos)
+
     abaEl.innerHTML = `
       <form id="form-pagamento" novalidate class="grid grid-cols-2 sm:grid-cols-[1.2fr_1.3fr_1.2fr_1.8fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
         <div>
@@ -722,6 +844,27 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         <div class="col-span-2 sm:col-span-1 flex items-end">
           <button type="submit" class="${cls.btnPrimario} w-full">Lançar</button>
         </div>
+        ${
+          saldoDevedor > 0
+            ? `
+            <div class="col-span-2 sm:col-span-5 flex items-center gap-2 flex-wrap pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
+              <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">Atalhos rápidos:</span>
+              <button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1">
+                <span>⚡ Quitar Saldo Total (${formatarMoeda(saldoDevedor)})</span>
+              </button>
+              ${
+                saldoDevedor >= 10
+                  ? `
+                  <button type="button" id="btn-quitar-metade" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition active:scale-95">
+                    50% (${formatarMoeda(Math.round((saldoDevedor / 2) * 100) / 100)})
+                  </button>
+                  `
+                  : ''
+              }
+            </div>
+            `
+            : ''
+        }
       </form>
 
       ${barraBuscaEOrdenacao()}
@@ -817,6 +960,14 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       } finally {
         btn.disabled = false
       }
+    })
+
+    abaEl.querySelector('#btn-quitar-total')?.addEventListener('click', () => {
+      valorInput.value = valorParaInput(saldoDevedor)
+    })
+
+    abaEl.querySelector('#btn-quitar-metade')?.addEventListener('click', () => {
+      valorInput.value = valorParaInput(Math.round((saldoDevedor / 2) * 100) / 100)
     })
 
     abaEl.querySelector('#lista-pagamentos')!.addEventListener('click', async e => {

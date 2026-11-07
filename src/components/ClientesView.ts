@@ -19,7 +19,7 @@ import {
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
-type FiltroStatus = 'todos' | 'devedores' | 'antigos' | 'em_dia'
+type FiltroStatus = 'todos' | 'promessas' | 'devedores' | 'antigos' | 'em_dia'
 
 function normalizarBusca(texto: string): string {
   return texto
@@ -146,25 +146,22 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           <span id="seta-clientes" class="text-xs text-slate-400 group-hover:text-emerald-500 transition-transform">▼</span>
         </button>
         <div id="corpo-clientes" class="hidden mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 animate-fade-in">
-          <!-- Filtros Rápidos com Alerta de Débito Antigo -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl mb-3 text-xs font-bold" role="group" aria-label="Filtrar por status">
-            <button type="button" data-filtro="todos" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
-              ⚪ Todos <span id="filtro-count-todos" class="opacity-75 font-semibold text-[11px]"></span>
-            </button>
-            <button type="button" data-filtro="devedores" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
-              🔴 Débitos <span id="filtro-count-devedores" class="opacity-75 font-semibold text-[11px]"></span>
-            </button>
-            <button type="button" data-filtro="antigos" class="btn-filtro py-2 px-1 rounded-xl transition text-center" title="Clientes com saldo devedor pendente há mais de 30 dias">
-              ⚠️ +30 Dias <span id="filtro-count-antigos" class="opacity-75 font-semibold text-[11px]"></span>
-            </button>
-            <button type="button" data-filtro="em_dia" class="btn-filtro py-2 px-1 rounded-xl transition text-center">
-              🟢 Em Dia <span id="filtro-count-emdia" class="opacity-75 font-semibold text-[11px]"></span>
-            </button>
+          <!-- Busca e Filtro Selecionável Compacto -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
+            <div class="flex-1 min-w-0">
+              <input id="busca-cliente" type="search" class="${cls.input} text-xs py-2" placeholder="🔍 Buscar cliente por nome ou telefone">
+            </div>
+            <div class="w-full sm:w-64 shrink-0">
+              <select id="select-filtro-status" class="${cls.input} text-xs font-bold py-2 bg-slate-50 dark:bg-slate-800 cursor-pointer" aria-label="Filtrar clientes por status">
+                <option value="todos">⚪ Todos os Clientes</option>
+                <option value="promessas">⏰ Promessas Hoje / Vencidas</option>
+                <option value="devedores">🔴 Clientes com Débito</option>
+                <option value="antigos">⚠️ Débitos +30 Dias</option>
+                <option value="em_dia">🟢 Clientes em Dia</option>
+              </select>
+            </div>
           </div>
 
-          <div class="mb-3">
-            <input id="busca-cliente" type="search" class="${cls.input}" placeholder="🔍 Buscar cliente por nome ou telefone">
-          </div>
           <ul id="lista-clientes" class="space-y-2"></ul>
         </div>
       </section>
@@ -198,16 +195,14 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     setaClientes.textContent = fechado ? '▼' : '▲'
   })
 
-  // Botões de filtro rápido da lista de clientes
-  container.querySelectorAll<HTMLButtonElement>('.btn-filtro').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const f = btn.dataset.filtro as FiltroStatus
-      if (f && f !== filtroStatus) {
-        filtroStatus = f
-        renderLista()
-      }
+  // Seletor compacto de filtro de status
+  const selectFiltro = container.querySelector<HTMLSelectElement>('#select-filtro-status')
+  if (selectFiltro) {
+    selectFiltro.addEventListener('change', () => {
+      filtroStatus = selectFiltro.value as FiltroStatus
+      renderLista()
     })
-  })
+  }
 
   // Event delegation nos botões de período do resumo
   resumoEl.addEventListener('click', async e => {
@@ -375,31 +370,37 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     const totalDevedores = clientes.filter(c => c.saldo_devedor > 0).length
     const totalAntigos = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
     const totalEmDia = clientes.filter(c => c.saldo_devedor <= 0).length
+    const totalPromessas = clientes.filter(c => {
+      if (c.saldo_devedor <= 0 || !c.data_promessa) return false
+      const st = obterStatusPromessa(c.data_promessa)?.status
+      return st === 'vence_hoje' || st === 'vencida'
+    }).length
 
-    const countTodos = container.querySelector('#filtro-count-todos')
-    const countDevedores = container.querySelector('#filtro-count-devedores')
-    const countAntigos = container.querySelector('#filtro-count-antigos')
-    const countEmDia = container.querySelector('#filtro-count-emdia')
-    if (countTodos) countTodos.textContent = `(${totalTodos})`
-    if (countDevedores) countDevedores.textContent = `(${totalDevedores})`
-    if (countAntigos) countAntigos.textContent = `(${totalAntigos})`
-    if (countEmDia) countEmDia.textContent = `(${totalEmDia})`
-
-    // Estilização do filtro ativo vs inativo
-    container.querySelectorAll<HTMLButtonElement>('.btn-filtro').forEach(btn => {
-      const f = btn.dataset.filtro
-      if (f === filtroStatus) {
-        btn.className = 'btn-filtro py-2 px-1 rounded-xl transition text-center bg-white dark:bg-slate-900 shadow-sm text-slate-900 dark:text-white font-black ring-1 ring-slate-200 dark:ring-slate-700'
-      } else {
-        btn.className = 'btn-filtro py-2 px-1 rounded-xl transition text-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-bold'
-      }
-    })
+    const selectFiltroEl = container.querySelector<HTMLSelectElement>('#select-filtro-status')
+    if (selectFiltroEl) {
+      selectFiltroEl.value = filtroStatus
+      const optTodos = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="todos"]')
+      const optPromessas = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="promessas"]')
+      const optDevedores = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="devedores"]')
+      const optAntigos = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="antigos"]')
+      const optEmDia = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="em_dia"]')
+      if (optTodos) optTodos.textContent = `⚪ Todos (${totalTodos})`
+      if (optPromessas) optPromessas.textContent = `⏰ Promessas Hoje/Vencidas (${totalPromessas})`
+      if (optDevedores) optDevedores.textContent = `🔴 Débitos (${totalDevedores})`
+      if (optAntigos) optAntigos.textContent = `⚠️ Débitos +30 Dias (${totalAntigos})`
+      if (optEmDia) optEmDia.textContent = `🟢 Em Dia (${totalEmDia})`
+    }
 
     const termo = normalizarBusca(busca.trim())
     const termoDigitos = busca.replace(/\D/g, '')
 
     const filtrados = clientes.filter(c => {
-      // Regra do filtro rápido
+      // Regra do filtro selecionável
+      if (filtroStatus === 'promessas') {
+        if (c.saldo_devedor <= 0 || !c.data_promessa) return false
+        const st = obterStatusPromessa(c.data_promessa)?.status
+        if (st !== 'vence_hoje' && st !== 'vencida') return false
+      }
       if (filtroStatus === 'devedores' && c.saldo_devedor <= 0) return false
       if (filtroStatus === 'antigos' && (c.saldo_devedor <= 0 || (c.dias_atraso || 0) < 30)) return false
       if (filtroStatus === 'em_dia' && c.saldo_devedor > 0) return false
@@ -425,6 +426,8 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
       let mensagemVazia = 'Nenhum cliente encontrado.'
       if (termo) {
         mensagemVazia = 'Nenhum cliente encontrado para a busca digitada.'
+      } else if (filtroStatus === 'promessas') {
+        mensagemVazia = '🎉 Excelente! Nenhuma promessa de pagamento para hoje ou em atraso.'
       } else if (filtroStatus === 'antigos') {
         mensagemVazia = '🎉 Excelente! Nenhum cliente com débito pendente há mais de 30 dias.'
       } else if (filtroStatus === 'devedores') {
@@ -457,31 +460,36 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           </div>`
           : ''
 
-        const badgePromessa = infoPromessa
-          ? `
-          <div class="mt-1">
-            <span class="inline-flex items-center text-[10px] font-black px-2 py-0.5 rounded-full border ${infoPromessa.corBadge}">
-              ${infoPromessa.rotulo}
-            </span>
-          </div>`
-          : ''
+        // Cores de todo o card conforme status de promessa ou envelhecimento do débito
+        let estiloCard = 'border-slate-200 dark:border-slate-700/80 bg-slate-50 hover:bg-emerald-50/60 dark:bg-slate-800/60 dark:hover:bg-slate-800'
+        let estiloAvatar = 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+
+        if (c.saldo_devedor > 0 && infoPromessa) {
+          if (infoPromessa.status === 'vence_hoje') {
+            // Promessa Vence Hoje! -> card fica amarelo/laranja pulsante
+            estiloCard = 'border-amber-400 dark:border-amber-500 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 ring-2 ring-amber-400/50 animate-pulse'
+            estiloAvatar = 'bg-amber-500 text-slate-950 font-black'
+          } else if (infoPromessa.status === 'vencida') {
+            // Promessa Vencida -> card fica na cor alerta vermelho
+            estiloCard = 'border-rose-400 dark:border-rose-500 bg-rose-500/15 hover:bg-rose-500/25 dark:bg-rose-950/40 dark:hover:bg-rose-950/60 ring-2 ring-rose-400/50'
+            estiloAvatar = 'bg-rose-500 text-white font-black'
+          } else if (infoPromessa.status === 'a_vencer') {
+            // Acerto Futuro -> card fica na cor indicador azul
+            estiloCard = 'border-sky-400 dark:border-sky-500 bg-sky-500/15 hover:bg-sky-500/25 dark:bg-sky-950/40 dark:hover:bg-sky-950/60 ring-1 ring-sky-400/50'
+            estiloAvatar = 'bg-sky-500 text-white font-black'
+          }
+        } else if (dias >= 60) {
+          estiloCard = 'border-rose-400/80 dark:border-rose-500/50 bg-rose-50/20 hover:bg-rose-50/40'
+          estiloAvatar = 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+        } else if (dias >= 30) {
+          estiloCard = 'border-amber-400/80 dark:border-amber-500/50 bg-amber-50/20 hover:bg-amber-50/40'
+          estiloAvatar = 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+        }
 
         return `
-        <li class="group flex items-center gap-2 bg-slate-50 hover:bg-emerald-50/60 dark:bg-slate-800/60 dark:hover:bg-slate-800 border ${
-          dias >= 60
-            ? 'border-rose-400/80 dark:border-rose-500/50 bg-rose-50/20'
-            : dias >= 30
-              ? 'border-amber-400/80 dark:border-amber-500/50 bg-amber-50/20'
-              : 'border-slate-200 dark:border-slate-700/80'
-        } rounded-2xl pl-3 pr-1.5 py-2 transition">
+        <li class="group flex items-center gap-2 ${estiloCard} rounded-2xl pl-3 pr-1.5 py-2 transition">
           <a href="#/cliente/${c.id}" class="flex-1 min-w-0 flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full ${
-              dias >= 60
-                ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
-                : dias >= 30
-                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                  : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-            } flex items-center justify-center font-black text-sm shrink-0">
+            <div class="w-9 h-9 rounded-full ${estiloAvatar} flex items-center justify-center font-black text-sm shrink-0">
               ${escaparHTML(c.nome.trim().charAt(0).toUpperCase())}
             </div>
             <div class="min-w-0 flex-1">
@@ -492,7 +500,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
                 <span class="text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c)}</span>
               </div>
               ${avisoAtraso}
-              ${badgePromessa}
             </div>
             ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
           </a>
