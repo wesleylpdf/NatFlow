@@ -46,11 +46,32 @@ export function obterNomeMembroLocal(email: string): string | null {
 
 let mapaMembrosCache: Map<string, string> | null = null
 
+export function obterMapaMembrosSincrono(): Map<string, string> {
+  const mapa = new Map<string, string>(mapaMembrosCache || [])
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k && k.toLowerCase().startsWith('natflow_nome_')) {
+          const email = k.slice('natflow_nome_'.length).toLowerCase().trim()
+          const nome = localStorage.getItem(k)
+          if (email && nome && !mapa.has(email)) {
+            mapa.set(email, nome.trim())
+          }
+        }
+      }
+    }
+  } catch {
+    // storage opcional
+  }
+  return mapa
+}
+
 export async function carregarMapaMembros(): Promise<Map<string, string>> {
-  if (mapaMembrosCache) return mapaMembrosCache
+  if (mapaMembrosCache && mapaMembrosCache.size > 0) return mapaMembrosCache
+  const mapa = obterMapaMembrosSincrono()
   try {
     const equipe = await listarEquipe()
-    const mapa = new Map<string, string>()
     equipe.forEach(m => {
       if (m.email && m.nome) {
         const emailLimpo = m.email.toLowerCase().trim()
@@ -62,7 +83,8 @@ export async function carregarMapaMembros(): Promise<Map<string, string>> {
     return mapa
   } catch (err) {
     console.warn('[Equipe] Erro ao carregar mapa de membros:', err)
-    return new Map()
+    mapaMembrosCache = mapa
+    return mapa
   }
 }
 
@@ -96,7 +118,12 @@ export async function obterPerfilAtual(forcarAtualizacao = false): Promise<Autor
   const autorizado = { ...(data as Autorizado) }
   // Salva nome do membro no cache local para autoria rápida
   if (autorizado.email && autorizado.nome) {
-    salvarNomeMembroLocal(autorizado.email, autorizado.nome)
+    const emailLimpo = autorizado.email.toLowerCase().trim()
+    salvarNomeMembroLocal(emailLimpo, autorizado.nome)
+    if (!mapaMembrosCache) {
+      mapaMembrosCache = new Map()
+    }
+    mapaMembrosCache.set(emailLimpo, autorizado.nome.trim())
   }
 
   // Fallback para beneficiario_pix do localStorage se o banco ainda não tiver o campo

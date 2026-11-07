@@ -3,6 +3,7 @@ import {
   calcularDiasAtraso,
   obterStatusPromessa,
   escaparHTML,
+  extrairPrimeiroNome,
   formatarAutoriaResumida,
   formatarData,
   formatarDataHora,
@@ -60,6 +61,40 @@ describe('formatadores', () => {
   it('escaparHTML', () => {
     expect(escaparHTML('<b>"a" & \'b\'</b>')).toBe('&lt;b&gt;&quot;a&quot; &amp; &#39;b&#39;&lt;/b&gt;')
     expect(escaparHTML(null)).toBe('')
+  })
+
+  it('extrairPrimeiroNome - trata sobrenomes antes do nome, vírgulas e emails', () => {
+    // Nome simples e com sobrenome
+    expect(extrairPrimeiroNome('Wesley')).toBe('Wesley')
+    expect(extrairPrimeiroNome('Wesley Ferreira')).toBe('Wesley')
+    expect(extrairPrimeiroNome('Wesley da Silva Ferreira')).toBe('Wesley')
+
+    // Formato com vírgula (Sobrenome, Nome)
+    expect(extrairPrimeiroNome('Ferreira, Wesley')).toBe('Wesley')
+    expect(extrairPrimeiroNome('Silva, João')).toBe('João')
+
+    // Sobrenome comum cadastrado antes do primeiro nome (sem vírgula)
+    expect(extrairPrimeiroNome('Ferreira Wesley')).toBe('Wesley')
+    expect(extrairPrimeiroNome('Silva João')).toBe('João')
+
+    // Título ou prefixo
+    expect(extrairPrimeiroNome('Dr. Wesley Silva')).toBe('Wesley')
+
+    // E-mail com sobrenome comum primeiro
+    expect(extrairPrimeiroNome('ferreira.wesley@exemplo.com')).toBe('Wesley')
+    expect(extrairPrimeiroNome('silva.joao@exemplo.com')).toBe('Joao')
+
+    // E-mail com nome primeiro
+    expect(extrairPrimeiroNome('wesley.ferreira@exemplo.com')).toBe('Wesley')
+    expect(extrairPrimeiroNome('ana.paula@exemplo.com')).toBe('Ana')
+
+    // Com mapa
+    const mapa = new Map([
+      ['wesleylpdf@gmail.com', 'Wesley Ferreira'],
+      ['editor@empresa.com', 'Ferreira, Wesley'],
+    ])
+    expect(extrairPrimeiroNome('wesleylpdf@gmail.com', mapa)).toBe('Wesley')
+    expect(extrairPrimeiroNome('editor@empresa.com', mapa)).toBe('Wesley')
   })
 
   it('formatarAutoriaResumida', () => {

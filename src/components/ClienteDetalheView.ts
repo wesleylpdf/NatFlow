@@ -199,7 +199,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
     const linkWhatsTelefone = whats && c.telefone
       ? `<a href="${whats}" target="_blank" rel="noopener"
-           class="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline whitespace-nowrap"
+           class="shrink-0 inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline whitespace-nowrap"
            title="Abrir WhatsApp do cliente"
            aria-label="Abrir WhatsApp">
           <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -207,7 +207,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           </svg>
           ${escaparHTML(c.telefone)}
         </a>`
-      : `<span class="text-xs text-slate-400 dark:text-slate-500">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>`
+      : `<span class="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 shrink-0">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>`
 
     // Botão de Cobrança rápida via WhatsApp (exibido apenas quando cliente deve)
     const btnCobrarWhatsApp =
@@ -220,25 +220,26 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         : ''
 
     painelEl.innerHTML = `
-      <div class="flex items-start justify-between gap-3 mb-4">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
+      <div class="mb-3 space-y-1.5">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
             <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</h2>
             <button id="btn-editar-cliente" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
           </div>
-          <div class="flex items-center gap-2 mt-1 flex-nowrap overflow-x-auto whitespace-nowrap min-w-0 text-xs">
-            ${linkWhatsTelefone}
-            <span class="text-xs text-slate-400 dark:text-slate-500 shrink-0">•</span>
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0 whitespace-nowrap">${formatarAutoriaResumida(c, mapaMembros)}</span>
+          <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            ${btnCobrarWhatsApp}
+            <button id="btn-extrato-whats" type="button"
+              class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-sm transition"
+              title="Baixar PDF e enviar extrato completo para o cliente no WhatsApp">
+              📄 Extrato
+            </button>
           </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          ${btnCobrarWhatsApp}
-          <button id="btn-extrato-whats" type="button"
-            class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-sm transition"
-            title="Baixar PDF e enviar extrato completo para o cliente no WhatsApp">
-            📄 Extrato
-          </button>
+
+        <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap whitespace-nowrap min-w-0 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+          ${linkWhatsTelefone}
+          <span class="text-slate-400 dark:text-slate-500 shrink-0">•</span>
+          <span class="font-medium shrink-0 whitespace-nowrap">${formatarAutoriaResumida(c, mapaMembros)}</span>
         </div>
       </div>
 
@@ -849,7 +850,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         ${
           saldoDevedor > 0
             ? `
-            <div class="col-span-2 sm:col-span-5 flex items-center gap-2 flex-nowrap overflow-x-auto whitespace-nowrap pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
+            <div class="col-span-2 sm:col-span-5 flex items-center gap-1.5 sm:gap-2 flex-nowrap whitespace-nowrap min-w-0 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
               <button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <span>⚡ Quitar Saldo (${formatarMoeda(saldoDevedor)})</span>
               </button>

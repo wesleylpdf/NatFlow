@@ -95,9 +95,27 @@ export function formatarDataHora(dataISO: string): string {
   }
 }
 
+const SOBRENOMES_COMUNS = new Set([
+  'albuquerque', 'almeida', 'alves', 'andrade', 'antunes', 'araujo', 'araújo',
+  'azevedo', 'barbosa', 'barros', 'bezerra', 'borges', 'branco', 'brito',
+  'caldeira', 'camargo', 'campos', 'cardoso', 'carvalho', 'castro', 'cavalcanti',
+  'coelho', 'correia', 'costa', 'cunha', 'dias', 'duarte', 'farias', 'fernandes',
+  'ferreira', 'figueiredo', 'franco', 'freitas', 'garcia', 'gomes', 'goncalves',
+  'gonçalves', 'guedes', 'lima', 'lopes', 'macedo', 'machado', 'magalhaes',
+  'magalhães', 'marques', 'martins', 'medeiros', 'mello', 'melo', 'mendes',
+  'miranda', 'monteiro', 'moraes', 'morais', 'moreira', 'moura', 'nascimento',
+  'neves', 'nogueira', 'nunes', 'oliveira', 'paiva', 'peixoto', 'pereira',
+  'pinheiro', 'pinto', 'pires', 'queiroz', 'ramos', 'reis', 'resende',
+  'rezende', 'ribeiro', 'rocha', 'rodrigues', 'sales', 'santana', 'santos',
+  'silva', 'silveira', 'soares', 'sousa', 'souza', 'tavares', 'teixeira',
+  'vargas', 'vasconcelos', 'viana', 'vieira', 'xavier'
+])
+
 /**
  * Extrai o primeiro nome de um autor/usuário (ignorando qualquer coisa após o primeiro espaço).
  * Se receber um e-mail, busca o nome cadastrado no cache ou mapa e extrai o primeiro nome.
+ * Trata inteligentemente sobrenomes registrados antes do primeiro nome (ex: "Ferreira, Wesley", "Ferreira Wesley",
+ * ou e-mails no formato "sobrenome.nome@...").
  */
 export function extrairPrimeiroNome(
   nomeOuEmail?: string | null,
@@ -110,15 +128,39 @@ export function extrairPrimeiroNome(
   let nomeCompleto = valor
 
   if (valor.includes('@')) {
-    const emailLimpo = valor.toLowerCase()
-    const doMapa = mapaNomes?.get(emailLimpo)
+    const emailLimpo = valor.toLowerCase().trim()
+    let doMapa = mapaNomes?.get(emailLimpo)
+
+    // Se não encontrou exato no mapa, tenta busca case-insensitive e por chave sem domínio
+    if (!doMapa && mapaNomes) {
+      for (const [k, v] of mapaNomes.entries()) {
+        const kLimpo = k.toLowerCase().trim()
+        if (kLimpo === emailLimpo || kLimpo.split('@')[0] === emailLimpo.split('@')[0]) {
+          doMapa = v
+          break
+        }
+      }
+    }
+
     let doCache: string | null = null
     try {
       if (typeof localStorage !== 'undefined') {
         doCache = localStorage.getItem(`natflow_nome_${emailLimpo}`)
+        if (!doCache) {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i)
+            if (k && k.toLowerCase().startsWith('natflow_nome_')) {
+              const emailK = k.slice('natflow_nome_'.length).toLowerCase().trim()
+              if (emailK === emailLimpo || emailK.split('@')[0] === emailLimpo.split('@')[0]) {
+                doCache = localStorage.getItem(k)
+                break
+              }
+            }
+          }
+        }
       }
     } catch {
-      // ignore
+      // storage opcional
     }
 
     if (doMapa) {
@@ -126,17 +168,58 @@ export function extrairPrimeiroNome(
     } else if (doCache) {
       nomeCompleto = doCache
     } else {
-      // Se não houver nome cadastrado no cache, pega parte antes do @
+      // Se não houver nome cadastrado no mapa ou cache, extrai do e-mail
       const parteEmail = valor.split('@')[0].trim()
-      nomeCompleto = parteEmail.split(/[._-]/)[0] || parteEmail
+      const partes = parteEmail.split(/[._-]+/).filter(Boolean)
+      if (partes.length >= 2) {
+        const p0 = partes[0].toLowerCase()
+        const p1 = partes[1].toLowerCase()
+        // Se a primeira parte for um sobrenome comum, o primeiro nome é a segunda parte (ex: ferreira.wesley)
+        if (SOBRENOMES_COMUNS.has(p0) && !['da', 'de', 'do', 'dos', 'das', 'e'].includes(p1)) {
+          nomeCompleto = partes[1]
+        } else {
+          nomeCompleto = partes[0]
+        }
+      } else if (partes.length === 1) {
+        nomeCompleto = partes[0]
+      }
     }
   }
 
-  // Pega apenas o primeiro nome ignorando qualquer coisa após o primeiro espaço
-  const primeiroNome = nomeCompleto.trim().split(/\s+/)[0]
+  // Se o nome estiver no formato "Sobrenome, Nome"
+  if (nomeCompleto.includes(',')) {
+    const partes = nomeCompleto.split(',')
+    const depoisVirgula = partes[1]?.trim()
+    if (depoisVirgula) {
+      nomeCompleto = depoisVirgula
+    }
+  }
+
+  // Remove títulos e prefixos como Dr., Dra., Sr., Sra., Prof.
+  nomeCompleto = nomeCompleto.replace(/^(dr|dra|sr|sra|prof|profa)\.?\s+/i, '')
+
+  // Pega as palavras separadas por espaço
+  const palavras = nomeCompleto.trim().split(/\s+/).filter(Boolean)
+  if (palavras.length === 0) return 'desconhecido'
+
+  let primeiroNome = palavras[0]
+
+  // Se foram informadas 2 ou mais palavras e a primeira for um sobrenome comum brasileiro (ex: "Ferreira Wesley", "Silva João")
+  // e a segunda palavra não for sufixo de família nem conector, pega a segunda palavra como primeiro nome!
+  if (palavras.length >= 2) {
+    const p0 = palavras[0].toLowerCase().replace(/[^a-zA-ZÀ-ÿ]/g, '')
+    const p1 = palavras[1].toLowerCase().replace(/[^a-zA-ZÀ-ÿ]/g, '')
+    const conectoresOuSufixos = ['da', 'de', 'do', 'dos', 'das', 'e', 'junior', 'filho', 'neto', 'sobrinho', 'segundo', 'terceiro']
+    if (SOBRENOMES_COMUNS.has(p0) && !conectoresOuSufixos.includes(p1)) {
+      primeiroNome = palavras[1]
+    }
+  }
+
+  // Remove caracteres especiais ou pontuações residuais
+  primeiroNome = primeiroNome.replace(/[^a-zA-ZÀ-ÿ0-9]/g, '')
   if (!primeiroNome) return 'desconhecido'
 
-  return primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1)
+  return primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1).toLowerCase()
 }
 
 /**
