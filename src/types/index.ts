@@ -64,6 +64,7 @@ export interface HistoricoItem {
   acao: 'criou' | 'editou' | 'excluiu'
   registro_id: string
   cliente_id?: string | null
+  cliente_nome?: string | null
   usuario_email: string
   usuario_nome?: string | null
   dados_antes?: Record<string, unknown> | null

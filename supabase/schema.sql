@@ -192,6 +192,7 @@ CREATE TABLE IF NOT EXISTS public.historico (
   acao TEXT NOT NULL CHECK (acao IN ('criou', 'editou', 'excluiu')),
   registro_id UUID NOT NULL,
   cliente_id UUID,           -- sem FK: o histórico permanece após excluir o cliente
+  cliente_nome TEXT,
   usuario_email TEXT NOT NULL,
   usuario_nome TEXT,
   dados_antes JSONB,
@@ -217,6 +218,7 @@ DECLARE
   v_depois JSONB;
   v_reg JSONB;
   v_cliente UUID;
+  v_cliente_nome TEXT;
   v_ignorar TEXT[] := ARRAY['atualizado_por', 'atualizado_em'];
 BEGIN
   SELECT nome INTO v_nome FROM public.autorizados WHERE email = v_email;
@@ -246,10 +248,16 @@ BEGIN
     ELSE NULL
   END;
 
+  IF TG_TABLE_NAME = 'clientes' THEN
+    v_cliente_nome := v_reg ->> 'nome';
+  ELSIF TG_TABLE_NAME IN ('compras', 'pagamentos') AND v_cliente IS NOT NULL THEN
+    SELECT nome INTO v_cliente_nome FROM public.clientes WHERE id = v_cliente;
+  END IF;
+
   INSERT INTO public.historico
-    (tabela, acao, registro_id, cliente_id, usuario_email, usuario_nome, dados_antes, dados_depois)
+    (tabela, acao, registro_id, cliente_id, cliente_nome, usuario_email, usuario_nome, dados_antes, dados_depois)
   VALUES
-    (TG_TABLE_NAME, v_acao, (v_reg ->> 'id')::UUID, v_cliente, v_email, v_nome, v_antes, v_depois);
+    (TG_TABLE_NAME, v_acao, (v_reg ->> 'id')::UUID, v_cliente, v_cliente_nome, v_email, v_nome, v_antes, v_depois);
 
   RETURN coalesce(NEW, OLD);
 END;
@@ -398,4 +406,5 @@ ON CONFLICT (email) DO NOTHING;
 ALTER TABLE public.autorizados ADD COLUMN IF NOT EXISTS chave_pix TEXT;
 ALTER TABLE public.autorizados ADD COLUMN IF NOT EXISTS beneficiario_pix TEXT;
 ALTER TABLE public.pagamentos ADD COLUMN IF NOT EXISTS forma_pagamento TEXT;
+ALTER TABLE public.historico ADD COLUMN IF NOT EXISTS cliente_nome TEXT;
 
