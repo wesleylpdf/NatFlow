@@ -4,52 +4,79 @@ import { escaparHTML, formatarDataHora, formatarMoeda } from '@/utils/format'
 import { mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
+/**
+ * Renderiza o botão interativo com tag visual do cliente para ser inserido inline nas frases
+ */
+function renderBotaoClienteInline(item: HistoricoItem): string {
+  const nome = item.cliente_nome
+  if (!nome) return ''
+
+  if (item.tabela === 'clientes' && item.acao === 'excluiu') {
+    return `<span class="inline-flex items-center gap-1 font-black text-rose-700 dark:text-rose-300 bg-rose-500/10 border border-rose-500/25 px-2 py-0.5 rounded-lg text-xs align-middle my-0.5" title="Cliente excluído">
+      <span>🚨</span>
+      <span>${escaparHTML(nome)}</span>
+    </span>`
+  }
+
+  if (item.cliente_id) {
+    return `<a href="#/cliente/${item.cliente_id}"
+      class="inline-flex items-center gap-1 font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-lg text-xs align-middle my-0.5 transition hover:scale-105 active:scale-95"
+      title="Ir para a ficha de ${escaparHTML(nome)}">
+      <span>👤</span>
+      <span class="underline decoration-emerald-500/40">${escaparHTML(nome)}</span>
+    </a>`
+  }
+
+  return `<span class="inline-flex items-center gap-1 font-black text-slate-800 dark:text-slate-200 bg-slate-200/80 dark:bg-slate-700/80 px-2 py-0.5 rounded-lg text-xs align-middle my-0.5">
+    <span>👤</span>
+    <span>${escaparHTML(nome)}</span>
+  </span>`
+}
+
 function descreverRegistro(item: HistoricoItem): string {
   const dados = item.dados_depois || item.dados_antes || {}
-  const nomeCliente = item.cliente_nome
+  const botaoCliente = renderBotaoClienteInline(item)
 
   if (item.tabela === 'clientes') {
-    const nome = String(dados.nome || nomeCliente || 'Cliente sem nome')
-    const tel = dados.telefone ? ` (${dados.telefone})` : ''
+    const nomeFallback = String(dados.nome || item.cliente_nome || 'Cliente sem nome')
+    const clienteElemento = botaoCliente || `<strong>${escaparHTML(nomeFallback)}</strong>`
+    const tel = dados.telefone ? ` <span class="text-slate-500 font-normal">(${escaparHTML(String(dados.telefone))})</span>` : ''
+
     if (item.acao === 'criou') {
-      return `Cadastrou o(a) cliente <strong>${escaparHTML(nome)}</strong>${escaparHTML(tel)}`
+      return `Cadastrou o(a) cliente ${clienteElemento}${tel}`
     }
     if (item.acao === 'excluiu') {
-      return `Excluiu o(a) cliente <strong>${escaparHTML(nome)}</strong>${escaparHTML(tel)} e todo o seu histórico`
+      return `Excluiu o(a) cliente ${clienteElemento}${tel} e todo o seu histórico`
     }
-    return `Editou dados cadastrais do(a) cliente <strong>${escaparHTML(nome)}</strong>${escaparHTML(tel)}`
+    return `Editou dados cadastrais do(a) cliente ${clienteElemento}${tel}`
   }
 
   if (item.tabela === 'compras') {
     const prod = String(dados.produto || 'Produto')
     const val = Number(dados.valor) || 0
-    const alvoCliente = nomeCliente
-      ? ` para o(a) cliente <strong>${escaparHTML(nomeCliente)}</strong>`
-      : ''
+    const clienteTexto = botaoCliente ? ` para o(a) cliente ${botaoCliente}` : ''
 
     if (item.acao === 'criou') {
-      return `Lançou o produto <strong>${escaparHTML(prod)}</strong> no valor de <strong>${formatarMoeda(val)}</strong>${alvoCliente}`
+      return `Lançou o produto <strong>${escaparHTML(prod)}</strong> no valor de <strong>${formatarMoeda(val)}</strong>${clienteTexto}`
     }
     if (item.acao === 'excluiu') {
-      return `Excluiu o produto <strong>${escaparHTML(prod)}</strong> no valor de <strong>${formatarMoeda(val)}</strong>${alvoCliente}`
+      return `Excluiu o produto <strong>${escaparHTML(prod)}</strong> no valor de <strong>${formatarMoeda(val)}</strong>${clienteTexto}`
     }
-    return `Editou o produto <strong>${escaparHTML(prod)}</strong> no valor de <strong>${formatarMoeda(val)}</strong>${alvoCliente}`
+    return `Editou o produto <strong>${escaparHTML(prod)}</strong> no valor de <strong>${formatarMoeda(val)}</strong>${clienteTexto}`
   }
 
   if (item.tabela === 'pagamentos') {
     const val = Number(dados.valor) || 0
-    const desc = dados.descricao ? ` ("${escaparHTML(String(dados.descricao))}")` : ''
-    const alvoCliente = nomeCliente
-      ? ` do(a) cliente <strong>${escaparHTML(nomeCliente)}</strong>`
-      : ''
+    const desc = dados.descricao ? ` <span class="text-slate-500">("${escaparHTML(String(dados.descricao))}")</span>` : ''
+    const clienteTexto = botaoCliente ? ` do(a) cliente ${botaoCliente}` : ''
 
     if (item.acao === 'criou') {
-      return `Registrou pagamento de <strong>${formatarMoeda(val)}</strong>${desc}${alvoCliente}`
+      return `Registrou pagamento de <strong>${formatarMoeda(val)}</strong>${desc}${clienteTexto}`
     }
     if (item.acao === 'excluiu') {
-      return `Excluiu pagamento de <strong>${formatarMoeda(val)}</strong>${desc}${alvoCliente}`
+      return `Excluiu pagamento de <strong>${formatarMoeda(val)}</strong>${desc}${clienteTexto}`
     }
-    return `Editou pagamento de <strong>${formatarMoeda(val)}</strong>${desc}${alvoCliente}`
+    return `Editou pagamento de <strong>${formatarMoeda(val)}</strong>${desc}${clienteTexto}`
   }
 
   if (item.tabela === 'autorizados') {
@@ -214,48 +241,18 @@ export async function renderHistorico(container: HTMLElement, clienteId?: string
           ? `<span class="font-bold text-slate-900 dark:text-white">${escaparHTML(item.usuario_nome)}</span> <span class="text-slate-400 text-[11px] font-normal">(${escaparHTML(item.usuario_email)})</span>`
           : `<span class="font-bold text-slate-900 dark:text-white">${escaparHTML(item.usuario_email)}</span>`
 
-        // Tag visual identificando o cliente envolvido
-        let tagCliente = ''
-        if (item.cliente_nome) {
-          if (item.tabela === 'clientes' && item.acao === 'excluiu') {
-            tagCliente = `
-              <span class="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 dark:text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-lg shrink-0" title="Cliente excluído">
-                <span>🚨 Cliente:</span>
-                <span class="truncate max-w-[140px] sm:max-w-[200px]">${escaparHTML(item.cliente_nome)}</span>
-              </span>
-            `
-          } else if (item.cliente_id) {
-            tagCliente = `
-              <a href="#/cliente/${item.cliente_id}"
-                 class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 px-2 py-0.5 rounded-lg transition shrink-0"
-                 title="Ir para a ficha de ${escaparHTML(item.cliente_nome)}">
-                <span>👤 Cliente:</span>
-                <span class="truncate max-w-[140px] sm:max-w-[200px] underline decoration-emerald-500/40">${escaparHTML(item.cliente_nome)}</span>
-              </a>
-            `
-          } else {
-            tagCliente = `
-              <span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-slate-200/80 dark:bg-slate-700/80 px-2 py-0.5 rounded-lg shrink-0">
-                <span>👤 Cliente:</span>
-                <span class="truncate max-w-[140px] sm:max-w-[200px]">${escaparHTML(item.cliente_nome)}</span>
-              </span>
-            `
-          }
-        }
-
         return `
           <li class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 sm:p-4 text-xs transition hover:border-slate-300 dark:hover:border-slate-600">
-            <!-- Barra Superior: Ação + Autor + Cliente + Horário -->
+            <!-- Barra Superior: Ação + Autor + Horário (Sem tags soltas redundantes) -->
             <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
               <div class="flex items-center gap-2 flex-wrap min-w-0">
                 ${badgeAcao(item.acao)}
                 ${usuario}
-                ${tagCliente}
               </div>
               <span class="text-[11px] text-slate-400 font-medium shrink-0">🕒 ${formatarDataHora(item.created_at)}</span>
             </div>
 
-            <!-- Descrição detalhada da alteração informando o cliente -->
+            <!-- Descrição detalhada da alteração com o botão do cliente inserido inline -->
             <div class="text-slate-800 dark:text-slate-200 text-xs sm:text-[13px] leading-relaxed mt-1">
               ${descreverRegistro(item)}
             </div>
