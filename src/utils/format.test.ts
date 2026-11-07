@@ -63,14 +63,30 @@ describe('formatadores', () => {
   })
 
   it('formatarAutoriaResumida', () => {
-    expect(formatarAutoriaResumida({ criado_por: 'ana@exemplo.com' })).toBe('Por ana')
+    // Com fallback de e-mail direto (pega primeiro identificador capitalizado)
+    expect(formatarAutoriaResumida({ criado_por: 'ana@exemplo.com' })).toBe('Por Ana')
     expect(
       formatarAutoriaResumida({
         criado_por: 'ana@exemplo.com',
         atualizado_por: 'joao@exemplo.com',
       })
-    ).toBe('Por ana • Editado por joao')
+    ).toBe('Por Ana • Editado por Joao')
     expect(formatarAutoriaResumida({})).toBe('Por desconhecido')
+
+    // Com mapa de membros cadastrados (pega apenas o primeiro nome ignorando sobrenomes)
+    const mapa = new Map([
+      ['wesley@exemplo.com', 'Wesley Silva Ferreira'],
+      ['camila@exemplo.com', 'Camila Rodrigues'],
+    ])
+    expect(
+      formatarAutoriaResumida(
+        {
+          criado_por: 'wesley@exemplo.com',
+          atualizado_por: 'camila@exemplo.com',
+        },
+        mapa
+      )
+    ).toBe('Por Wesley • Editado por Camila')
   })
 
   it('formatarDataHora', () => {

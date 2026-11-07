@@ -5,6 +5,7 @@ import {
   excluirCliente,
   listarClientesComSaldo,
 } from '@/services/clientes'
+import { carregarMapaMembros } from '@/services/equipe'
 import { obterResumoFinanceiro } from '@/services/financeiro'
 import type { ClienteComSaldo, ResumoFinanceiro } from '@/types'
 import {
@@ -74,16 +75,22 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   }
 
   let clientes: ClienteComSaldo[]
+  let mapaMembros = new Map<string, string>()
   try {
-    const [listaClientes, resumoInicial] = await Promise.all([
+    const [listaClientes, resumoInicial, mapa] = await Promise.all([
       listarClientesComSaldo(),
       obterResumoFinanceiro({ ano: periodoAno, mes: periodoMes }),
+      carregarMapaMembros(),
     ])
     clientes = listaClientes
     resumoFin = resumoInicial
+    mapaMembros = mapa
   } catch (e) {
     try {
-      clientes = await listarClientesComSaldo()
+      ;[clientes, mapaMembros] = await Promise.all([
+        listarClientesComSaldo(),
+        carregarMapaMembros(),
+      ])
     } catch (errClientes) {
       container.innerHTML = erroHTML(escaparHTML(mensagemErro(errClientes, 'Erro ao carregar clientes')))
       return
@@ -110,7 +117,10 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
   const recarregar = async (): Promise<void> => {
     try {
-      clientes = await listarClientesComSaldo()
+      ;[clientes, mapaMembros] = await Promise.all([
+        listarClientesComSaldo(),
+        carregarMapaMembros(),
+      ])
       renderLista()
       await atualizarResumoFinanceiro()
       const contador = container.querySelector('#contador-clientes')
@@ -497,7 +507,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
               <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 truncate">
                 <span>${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>
                 <span>•</span>
-                <span class="text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c)}</span>
+                <span class="text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c, mapaMembros)}</span>
               </div>
               ${avisoAtraso}
             </div>

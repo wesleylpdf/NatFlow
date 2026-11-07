@@ -8,7 +8,7 @@ import {
   excluirPagamento,
   listarPagamentos,
 } from '@/services/pagamentos'
-import { obterPerfilAtual } from '@/services/equipe'
+import { carregarMapaMembros, obterPerfilAtual } from '@/services/equipe'
 import { obterSugestoesCatalogo } from '@/services/catalogo'
 import type { Cliente, Compra, Pagamento, Autorizado } from '@/types'
 import {
@@ -85,13 +85,15 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
   let compras: Compra[]
   let pagamentos: Pagamento[]
   let perfil: Autorizado | null = null
+  let mapaMembros = new Map<string, string>()
 
   try {
-    ;[clientes, compras, pagamentos, perfil] = await Promise.all([
+    ;[clientes, compras, pagamentos, perfil, mapaMembros] = await Promise.all([
       listarClientes(),
       listarCompras(clienteId),
       listarPagamentos(clienteId),
       obterPerfilAtual(),
+      carregarMapaMembros(),
     ])
   } catch (e) {
     container.innerHTML = erroHTML(escaparHTML(mensagemErro(e, 'Erro ao carregar cliente')))
@@ -224,10 +226,10 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
             <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</h2>
             <button id="btn-editar-cliente" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
           </div>
-          <div class="flex items-center gap-3 mt-1 flex-wrap">
+          <div class="flex items-center gap-2 mt-1 flex-nowrap overflow-x-auto whitespace-nowrap min-w-0 text-xs">
             ${linkWhatsTelefone}
-            <span class="text-xs text-slate-400 dark:text-slate-500">•</span>
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">${formatarAutoriaResumida(c)}</span>
+            <span class="text-xs text-slate-400 dark:text-slate-500 shrink-0">•</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0 whitespace-nowrap">${formatarAutoriaResumida(c, mapaMembros)}</span>
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
@@ -547,7 +549,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
             id: c.id,
             titulo: escaparHTML(c.produto),
             subtitulo: `📅 ${formatarData(c.data)}`,
-            autoria: formatarAutoriaResumida(c),
+            autoria: formatarAutoriaResumida(c, mapaMembros),
             valor: c.valor,
             cor: 'rose',
           })
@@ -847,14 +849,14 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         ${
           saldoDevedor > 0
             ? `
-            <div class="col-span-2 sm:col-span-5 flex items-center gap-2 flex-wrap pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
-              <button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1">
-                <span>⚡ Quitar Saldo Total (${formatarMoeda(saldoDevedor)})</span>
+            <div class="col-span-2 sm:col-span-5 flex items-center gap-2 flex-nowrap overflow-x-auto whitespace-nowrap pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
+              <button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap">
+                <span>⚡ Quitar Saldo (${formatarMoeda(saldoDevedor)})</span>
               </button>
               ${
                 saldoDevedor >= 10
                   ? `
-                  <button type="button" id="btn-quitar-metade" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition active:scale-95">
+                  <button type="button" id="btn-quitar-metade" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition active:scale-95 shrink-0 whitespace-nowrap">
                     50% (${formatarMoeda(Math.round((saldoDevedor / 2) * 100) / 100)})
                   </button>
                   `
@@ -916,7 +918,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
             titulo: p.descricao ? escaparHTML(p.descricao) : 'Pagamento',
             subtitulo: `📅 ${formatarData(p.data)}`,
             badgeExtra: badgeForma,
-            autoria: formatarAutoriaResumida(p),
+            autoria: formatarAutoriaResumida(p, mapaMembros),
             valor: p.valor,
             cor: 'emerald',
             permiteRecibo: true,

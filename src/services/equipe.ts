@@ -23,6 +23,49 @@ function salvarBeneficiarioLocal(email: string, valor: string | null): void {
   }
 }
 
+export function salvarNomeMembroLocal(email: string, nome: string): void {
+  try {
+    if (typeof localStorage !== 'undefined' && email && nome) {
+      localStorage.setItem(`natflow_nome_${email.toLowerCase().trim()}`, nome.trim())
+    }
+  } catch {
+    // storage opcional
+  }
+}
+
+export function obterNomeMembroLocal(email: string): string | null {
+  try {
+    if (typeof localStorage !== 'undefined' && email) {
+      return localStorage.getItem(`natflow_nome_${email.toLowerCase().trim()}`) || null
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+let mapaMembrosCache: Map<string, string> | null = null
+
+export async function carregarMapaMembros(): Promise<Map<string, string>> {
+  if (mapaMembrosCache) return mapaMembrosCache
+  try {
+    const equipe = await listarEquipe()
+    const mapa = new Map<string, string>()
+    equipe.forEach(m => {
+      if (m.email && m.nome) {
+        const emailLimpo = m.email.toLowerCase().trim()
+        mapa.set(emailLimpo, m.nome.trim())
+        salvarNomeMembroLocal(emailLimpo, m.nome.trim())
+      }
+    })
+    mapaMembrosCache = mapa
+    return mapa
+  } catch (err) {
+    console.warn('[Equipe] Erro ao carregar mapa de membros:', err)
+    return new Map()
+  }
+}
+
 /**
  * Retorna os dados do membro logado na tabela autorizados
  */
@@ -51,6 +94,11 @@ export async function obterPerfilAtual(forcarAtualizacao = false): Promise<Autor
   }
 
   const autorizado = { ...(data as Autorizado) }
+  // Salva nome do membro no cache local para autoria rápida
+  if (autorizado.email && autorizado.nome) {
+    salvarNomeMembroLocal(autorizado.email, autorizado.nome)
+  }
+
   // Fallback para beneficiario_pix do localStorage se o banco ainda não tiver o campo
   if (!autorizado.beneficiario_pix) {
     const local = obterBeneficiarioLocal(emailLimpo)
@@ -120,6 +168,9 @@ export async function listarEquipe(): Promise<Autorizado[]> {
 
   if (error) throw error
   const lista = ((data as Autorizado[]) || []).map(m => {
+    if (m.email && m.nome) {
+      salvarNomeMembroLocal(m.email, m.nome)
+    }
     if (!m.beneficiario_pix) {
       const local = obterBeneficiarioLocal(m.email)
       if (local) return { ...m, beneficiario_pix: local }

@@ -96,16 +96,63 @@ export function formatarDataHora(dataISO: string): string {
 }
 
 /**
- * Retorna texto curto de autoria para exibir em listas e cards
+ * Extrai o primeiro nome de um autor/usuário (ignorando qualquer coisa após o primeiro espaço).
+ * Se receber um e-mail, busca o nome cadastrado no cache ou mapa e extrai o primeiro nome.
  */
-export function formatarAutoriaResumida(item: {
-  criado_por?: string | null
-  atualizado_por?: string | null
-  atualizado_em?: string | null
-}): string {
-  const autor = item.criado_por ? item.criado_por.split('@')[0] : 'desconhecido'
+export function extrairPrimeiroNome(
+  nomeOuEmail?: string | null,
+  mapaNomes?: Map<string, string>
+): string {
+  if (!nomeOuEmail) return 'desconhecido'
+  const valor = nomeOuEmail.trim()
+  if (!valor) return 'desconhecido'
+
+  let nomeCompleto = valor
+
+  if (valor.includes('@')) {
+    const emailLimpo = valor.toLowerCase()
+    const doMapa = mapaNomes?.get(emailLimpo)
+    let doCache: string | null = null
+    try {
+      if (typeof localStorage !== 'undefined') {
+        doCache = localStorage.getItem(`natflow_nome_${emailLimpo}`)
+      }
+    } catch {
+      // ignore
+    }
+
+    if (doMapa) {
+      nomeCompleto = doMapa
+    } else if (doCache) {
+      nomeCompleto = doCache
+    } else {
+      // Se não houver nome cadastrado no cache, pega parte antes do @
+      const parteEmail = valor.split('@')[0].trim()
+      nomeCompleto = parteEmail.split(/[._-]/)[0] || parteEmail
+    }
+  }
+
+  // Pega apenas o primeiro nome ignorando qualquer coisa após o primeiro espaço
+  const primeiroNome = nomeCompleto.trim().split(/\s+/)[0]
+  if (!primeiroNome) return 'desconhecido'
+
+  return primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1)
+}
+
+/**
+ * Retorna texto curto de autoria com o primeiro nome de quem criou / editou
+ */
+export function formatarAutoriaResumida(
+  item: {
+    criado_por?: string | null
+    atualizado_por?: string | null
+    atualizado_em?: string | null
+  },
+  mapaNomes?: Map<string, string>
+): string {
+  const autor = extrairPrimeiroNome(item.criado_por, mapaNomes)
   if (item.atualizado_por) {
-    const editor = item.atualizado_por.split('@')[0]
+    const editor = extrairPrimeiroNome(item.atualizado_por, mapaNomes)
     return `Por ${autor} • Editado por ${editor}`
   }
   return `Por ${autor}`
