@@ -116,9 +116,7 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
             <button data-editar="${m.id}" class="${cls.btnIcone}" title="Editar membro">✏️</button>
             <button data-excluir="${m.id}" class="${cls.btnIcone}" title="Remover da equipe">🗑️</button>
           `
-            : ehVoce
-              ? `<button data-meu-perfil class="${cls.btnSecundario} text-xs py-1 px-2.5" title="Editar meus dados e Chave PIX">✏️ Editar Meu PIX</button>`
-              : ''
+            : ''
 
         return `
           <li class="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3.5">
