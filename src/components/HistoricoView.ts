@@ -237,9 +237,8 @@ export async function renderHistorico(container: HTMLElement, clienteId?: string
 
     listaEl.innerHTML = filtrados
       .map(item => {
-        const usuario = item.usuario_nome
-          ? `<span class="font-bold text-slate-900 dark:text-white">${escaparHTML(item.usuario_nome)}</span> <span class="text-slate-400 text-[11px] font-normal">(${escaparHTML(item.usuario_email)})</span>`
-          : `<span class="font-bold text-slate-900 dark:text-white">${escaparHTML(item.usuario_email)}</span>`
+        const nomeAutor = item.usuario_nome || item.usuario_email?.split('@')[0] || 'Membro'
+        const usuario = `<span class="font-bold text-slate-900 dark:text-white">${escaparHTML(nomeAutor)}</span>`
 
         return `
           <li class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 sm:p-4 text-xs transition hover:border-slate-300 dark:hover:border-slate-600">
