@@ -7,6 +7,7 @@ export interface Autorizado {
   papel: PapelUsuario
   ativo: boolean
   chave_pix?: string | null
+  beneficiario_pix?: string | null
   created_at: string
   criado_por?: string | null
   atualizado_por?: string | null

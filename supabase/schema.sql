@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.autorizados (
   papel TEXT NOT NULL DEFAULT 'membro' CHECK (papel IN ('admin', 'membro')),
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
   chave_pix TEXT,
+  beneficiario_pix TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   criado_por TEXT,
   atualizado_por TEXT,
@@ -390,3 +391,11 @@ CREATE TRIGGER trg_bloquear_cadastro
 INSERT INTO public.autorizados (email, nome, papel)
 VALUES ('SEU-EMAIL@exemplo.com', 'Seu nome', 'admin')
 ON CONFLICT (email) DO NOTHING;
+
+-- ============================================
+-- MIGRAÇÕES IDEMPOTENTES (se a base já existir)
+-- ============================================
+ALTER TABLE public.autorizados ADD COLUMN IF NOT EXISTS chave_pix TEXT;
+ALTER TABLE public.autorizados ADD COLUMN IF NOT EXISTS beneficiario_pix TEXT;
+ALTER TABLE public.pagamentos ADD COLUMN IF NOT EXISTS forma_pagamento TEXT;
+

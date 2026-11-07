@@ -265,7 +265,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     painelEl.querySelector('#btn-extrato-whats')?.addEventListener('click', () => {
       const opcoesPix = {
         chavePix: perfil?.chave_pix,
-        nomeProfissional: perfil?.nome,
+        nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
       }
       abrirModalOpcoesExtrato(cliente!, compras, pagamentos, opcoesPix)
     })
@@ -273,7 +273,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     painelEl.querySelector('#btn-cobrar-whatsapp')?.addEventListener('click', () => {
       const opcoesPix = {
         chavePix: perfil?.chave_pix,
-        nomeProfissional: perfil?.nome,
+        nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
       }
       enviarLembreteCobrancaWhatsApp(cliente!, saldoDevedor, opcoesPix)
     })

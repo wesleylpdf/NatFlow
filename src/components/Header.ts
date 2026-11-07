@@ -38,7 +38,8 @@ function atualizarLinksNavegacao(container: HTMLElement): void {
 }
 
 /**
- * Modal para o usuário logado editar seu próprio nome e Chave PIX
+ * Modal para configurar a Chave PIX e o Nome do Beneficiário.
+ * IMPORTANTE: Não edita nem altera o nome de usuário membro da equipe!
  */
 export function abrirModalMeuPerfil(aoSalvar?: () => void): void {
   void (async () => {
@@ -50,31 +51,33 @@ export function abrirModalMeuPerfil(aoSalvar?: () => void): void {
       }
 
       abrirFormModal({
-        titulo: 'Meu Perfil & Chave PIX',
+        titulo: 'Configurar Chave PIX do Negócio',
         campos: [
           {
-            nome: 'nome',
-            label: 'Seu Nome',
-            tipo: 'text',
-            valor: perfil.nome,
-            obrigatorio: true,
-            placeholder: 'Nome de exibição',
-          },
-          {
             nome: 'chave_pix',
-            label: 'Sua Chave PIX (para cobranças)',
+            label: 'Chave PIX (para cobranças)',
             tipo: 'text',
             valor: perfil.chave_pix || '',
             obrigatorio: false,
             placeholder: 'CPF, CNPJ, Celular, E-mail ou Chave Aleatória',
           },
+          {
+            nome: 'beneficiario_pix',
+            label: 'Nome do Beneficiário no PIX (Titular da conta / Empresa)',
+            tipo: 'text',
+            valor: perfil.beneficiario_pix || '',
+            obrigatorio: false,
+            placeholder: 'Ex: Natália Cosméticos ou Nome do Titular da conta',
+          },
         ],
         onSalvar: async v => {
+          // ATENÇÃO: Atualiza estritamente os dados do PIX e Beneficiário,
+          // preservando intacto o nome do usuário membro da equipe.
           await atualizarMeuPerfil({
-            nome: v.nome,
             chave_pix: v.chave_pix,
+            beneficiario_pix: v.beneficiario_pix,
           })
-          toast.success('Perfil e Chave PIX atualizados com sucesso!')
+          toast.success('Chave PIX e Beneficiário atualizados com sucesso!')
           if (aoSalvar) aoSalvar()
         },
       })
@@ -89,6 +92,7 @@ export async function criarHeader(container: HTMLElement, email: string): Promis
   let badgePapel = ''
   let temPix = false
   let chavePixTexto = ''
+  let beneficiarioPixTexto = ''
 
   try {
     const perfil = await obterPerfilAtual()
@@ -96,6 +100,7 @@ export async function criarHeader(container: HTMLElement, email: string): Promis
       nomeExibicao = perfil.nome
       temPix = Boolean(perfil.chave_pix)
       chavePixTexto = perfil.chave_pix || ''
+      beneficiarioPixTexto = perfil.beneficiario_pix || ''
       const ehAdmin = perfil.papel === 'admin'
       badgePapel = ehAdmin
         ? `<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 font-extrabold uppercase border border-amber-500/30 shrink-0">Admin</span>`
@@ -105,8 +110,12 @@ export async function criarHeader(container: HTMLElement, email: string): Promis
     // fallback mantendo email
   }
 
+  const tooltipPix = chavePixTexto
+    ? `Chave PIX: ${escaparHTML(chavePixTexto)}${beneficiarioPixTexto ? ` (${escaparHTML(beneficiarioPixTexto)})` : ''}`
+    : 'Cadastrar chave PIX'
+
   const badgePix = temPix
-    ? `<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-extrabold border border-emerald-500/30 shrink-0" title="Chave PIX: ${escaparHTML(chavePixTexto)}">🔑 PIX</span>`
+    ? `<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-extrabold border border-emerald-500/30 shrink-0" title="${tooltipPix}">🔑 PIX</span>`
     : `<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-400 font-bold border border-slate-300 dark:border-slate-700 hover:text-emerald-500 shrink-0">+ PIX</span>`
 
   container.innerHTML = `

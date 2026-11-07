@@ -100,9 +100,10 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
           : `<span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold border border-rose-500/20">Desativado</span>`
 
         const pixInfo = m.chave_pix
-          ? `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+          ? `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20" title="${m.beneficiario_pix ? `Beneficiário: ${escaparHTML(m.beneficiario_pix)}` : 'Chave PIX'}">
                <span>🔑 PIX:</span>
                <span class="font-mono">${escaparHTML(m.chave_pix)}</span>
+               ${m.beneficiario_pix ? `<span class="opacity-80 font-normal">(${escaparHTML(m.beneficiario_pix)})</span>` : ''}
              </span>`
           : `<span class="text-[11px] text-slate-400 dark:text-slate-500 italic">Sem chave PIX</span>`
 
@@ -168,6 +169,13 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
             placeholder: 'CPF, CNPJ, Celular, E-mail ou Chave Aleatória',
             obrigatorio: false,
           },
+          {
+            nome: 'beneficiario_pix',
+            label: 'Nome do Beneficiário no PIX (opcional)',
+            tipo: 'text',
+            placeholder: 'Titular da conta ou Nome da Empresa',
+            obrigatorio: false,
+          },
         ],
         textoConfirmar: 'Autorizar',
         onSalvar: async valores => {
@@ -175,10 +183,11 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
           const nome = valores.nome.trim()
           const papel = valores.papel.trim().toLowerCase() as PapelUsuario
           const chave_pix = valores.chave_pix?.trim() || null
+          const beneficiario_pix = valores.beneficiario_pix?.trim() || null
           if (papel !== 'admin' && papel !== 'membro') {
             throw new Error('O papel deve ser "admin" ou "membro"')
           }
-          await adicionarMembro({ email, nome, papel, chave_pix })
+          await adicionarMembro({ email, nome, papel, chave_pix, beneficiario_pix })
           toast.success(`Membro ${nome} autorizado com sucesso!`)
           await recarregar()
         },
@@ -238,6 +247,14 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
             placeholder: 'CPF, CNPJ, Celular, E-mail ou Chave Aleatória',
             obrigatorio: false,
           },
+          {
+            nome: 'beneficiario_pix',
+            label: 'Nome do Beneficiário no PIX (opcional)',
+            tipo: 'text',
+            valor: membro.beneficiario_pix || '',
+            placeholder: 'Titular da conta ou Nome da Empresa',
+            obrigatorio: false,
+          },
         ],
         onSalvar: async valores => {
           const papel = valores.papel.trim().toLowerCase() as PapelUsuario
@@ -248,6 +265,7 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
             nome: valores.nome.trim(),
             papel,
             chave_pix: valores.chave_pix?.trim() || null,
+            beneficiario_pix: valores.beneficiario_pix?.trim() || null,
           })
           toast.success('Membro atualizado com sucesso!')
           await recarregar()
