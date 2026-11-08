@@ -5,7 +5,8 @@ import {
   excluirCliente,
   listarClientesComSaldo,
 } from '@/services/clientes'
-import { carregarMapaMembros } from '@/services/equipe'
+import { carregarMapaMembros, obterPerfilAtual } from '@/services/equipe'
+import { enviarLembreteCobrancaWhatsApp } from '@/utils/exportarPdf'
 import { obterResumoFinanceiro } from '@/services/financeiro'
 import type { ClienteComSaldo, ResumoFinanceiro } from '@/types'
 import {
@@ -121,6 +122,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         listarClientesComSaldo(),
         carregarMapaMembros(),
       ])
+      renderChips()
       renderLista()
       await atualizarResumoFinanceiro()
       const contador = container.querySelector('#contador-clientes')
@@ -153,24 +155,17 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
       <section class="${cls.card} p-4 sm:p-5">
         <button id="btn-toggle-clientes" type="button" class="w-full flex items-center justify-between font-black text-base text-slate-900 dark:text-white group focus:outline-none">
           <span class="flex items-center gap-2">👥 Clientes <span id="contador-clientes" class="text-xs font-bold text-slate-400">(${clientes.length})</span></span>
-          <span id="seta-clientes" class="text-xs text-slate-400 group-hover:text-emerald-500 transition-transform">▼</span>
+          <span id="seta-clientes" class="text-xs text-slate-400 group-hover:text-emerald-500 transition-transform">▲</span>
         </button>
-        <div id="corpo-clientes" class="hidden mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 animate-fade-in">
-          <!-- Busca e Filtro Selecionável Compacto -->
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
-            <div class="flex-1 min-w-0">
-              <input id="busca-cliente" type="search" class="${cls.input} text-xs py-2" placeholder="🔍 Buscar cliente por nome ou telefone">
-            </div>
-            <div class="w-full sm:w-64 shrink-0">
-              <select id="select-filtro-status" class="${cls.input} text-xs font-bold py-2 bg-slate-50 dark:bg-slate-800 cursor-pointer" aria-label="Filtrar clientes por status">
-                <option value="todos">⚪ Todos os Clientes</option>
-                <option value="promessas">⏰ Promessas Hoje / Vencidas</option>
-                <option value="devedores">🔴 Clientes com Débito</option>
-                <option value="antigos">⚠️ Débitos +30 Dias</option>
-                <option value="em_dia">🟢 Clientes em Dia</option>
-              </select>
-            </div>
+        <div id="corpo-clientes" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 animate-fade-in">
+          <!-- Campo de Busca com Botão de Limpar -->
+          <div class="relative mb-2.5">
+            <input id="busca-cliente" type="search" class="${cls.input} text-xs py-2 pr-7" placeholder="🔍 Buscar cliente por nome ou telefone">
+            <button id="btn-limpar-busca" type="button" class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-xs rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 font-bold" title="Limpar busca">✕</button>
           </div>
+
+          <!-- Pílulas / Chips de Filtro Deslizantes para Celulares -->
+          <div id="chips-filtro-status" class="flex items-center gap-1.5 overflow-x-auto pb-1 mb-3 scrollbar-none -mx-1 px-1 touch-pan-x"></div>
 
           <ul id="lista-clientes" class="space-y-2"></ul>
         </div>
@@ -205,12 +200,56 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     setaClientes.textContent = fechado ? '▼' : '▲'
   })
 
-  // Seletor compacto de filtro de status
-  const selectFiltro = container.querySelector<HTMLSelectElement>('#select-filtro-status')
-  if (selectFiltro) {
-    selectFiltro.addEventListener('change', () => {
-      filtroStatus = selectFiltro.value as FiltroStatus
-      renderLista()
+  const chipsContainer = container.querySelector<HTMLElement>('#chips-filtro-status')!
+  const btnLimparBusca = container.querySelector<HTMLButtonElement>('#btn-limpar-busca')!
+
+  function renderChips(): void {
+    if (!chipsContainer) return
+    const qtdTodos = clientes.length
+    const qtdPromessas = clientes.filter(c => {
+      const dataProm = c.proximo_acerto_data
+      if (c.saldo_devedor <= 0 || !dataProm) return false
+      const st = obterStatusPromessa(dataProm)?.status
+      return st === 'vence_hoje' || st === 'vencida'
+    }).length
+    const qtdDevedores = clientes.filter(c => c.saldo_devedor > 0).length
+    const qtdAntigos = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
+    const qtdEmDia = clientes.filter(c => c.saldo_devedor <= 0).length
+
+    const itens: { id: FiltroStatus; label: string; count: number }[] = [
+      { id: 'todos', label: '⚪ Todos', count: qtdTodos },
+      { id: 'promessas', label: '⏰ Vencem Hoje', count: qtdPromessas },
+      { id: 'devedores', label: '🔴 Devedores', count: qtdDevedores },
+      { id: 'antigos', label: '⚠️ +30d', count: qtdAntigos },
+      { id: 'em_dia', label: '🟢 Em Dia', count: qtdEmDia },
+    ]
+
+    chipsContainer.innerHTML = itens
+      .map(item => {
+        const ativo = filtroStatus === item.id
+        return `
+          <button type="button" data-filtro-chip="${item.id}" class="text-xs px-3 py-1.5 rounded-xl transition whitespace-nowrap active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer ${
+            ativo
+              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-black shadow-sm'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold'
+          }">
+            <span>${item.label}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full ${
+              ativo
+                ? 'bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-950 font-black'
+                : 'bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold'
+            }">${item.count}</span>
+          </button>
+        `
+      })
+      .join('')
+
+    chipsContainer.querySelectorAll<HTMLButtonElement>('[data-filtro-chip]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filtroStatus = btn.dataset.filtroChip as FiltroStatus
+        renderChips()
+        renderLista()
+      })
     })
   }
 
@@ -560,7 +599,14 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
                 ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
               </div>
             </a>
-            <div class="flex items-center gap-0.5 shrink-0">
+            <div class="flex items-center gap-1 shrink-0">
+              ${
+                c.telefone
+                  ? `<button type="button" data-whats-cliente="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Abrir WhatsApp">
+                      <span class="text-sm">💬</span>
+                    </button>`
+                  : ''
+              }
               <button data-editar="${c.id}" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
               <button data-excluir="${c.id}" class="${cls.btnIcone}" title="Excluir cliente">🗑️</button>
             </div>
@@ -612,10 +658,46 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
   buscaInput.addEventListener('input', () => {
     busca = buscaInput.value
+    if (btnLimparBusca) btnLimparBusca.classList.toggle('hidden', !busca)
     renderLista()
   })
 
+  btnLimparBusca?.addEventListener('click', () => {
+    buscaInput.value = ''
+    busca = ''
+    btnLimparBusca.classList.add('hidden')
+    renderLista()
+    buscaInput.focus()
+  })
+
   listaEl.addEventListener('click', async e => {
+    const btnWhats = (e.target as HTMLElement).closest<HTMLElement>('[data-whats-cliente]')
+    if (btnWhats) {
+      e.preventDefault()
+      e.stopPropagation()
+      const id = btnWhats.dataset.whatsCliente!
+      const cliente = clientes.find(c => c.id === id)
+      if (!cliente || !cliente.telefone) return
+
+      if (cliente.saldo_devedor > 0) {
+        try {
+          const perfil = await obterPerfilAtual()
+          const opcoesPix = {
+            chavePix: perfil?.chave_pix,
+            nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
+          }
+          enviarLembreteCobrancaWhatsApp(cliente, cliente.saldo_devedor, opcoesPix)
+        } catch {
+          enviarLembreteCobrancaWhatsApp(cliente, cliente.saldo_devedor)
+        }
+      } else {
+        const telLimpo = cliente.telefone.replace(/\D/g, '')
+        const msg = encodeURIComponent(`Olá, ${cliente.nome}! Tudo bem? 🌸`)
+        window.open(`https://api.whatsapp.com/send?phone=55${telLimpo}&text=${msg}`, '_blank')
+      }
+      return
+    }
+
     const alvo = (e.target as HTMLElement).closest<HTMLElement>('[data-editar],[data-excluir]')
     if (!alvo) return
     e.preventDefault()
@@ -644,6 +726,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   })
 
   renderResumo()
+  renderChips()
   renderLista()
 }
 

@@ -10,10 +10,23 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.48',
+    data: '08/11/2026',
+    titulo: 'UX Mobile: Atalho Direto de WhatsApp nos Cards e Pílulas de Filtros Deslizantes',
+    destaque: true,
+    adicionado: [
+      'Atalho direto de WhatsApp (💬) nos cards de clientes na tela inicial: 1 toque para enviar cobrança com PIX Copia e Cola (ou abrir conversa com cliente em dia).',
+      'Pílulas de filtros deslizantes (chips horizontais) para alternar rapidamente entre Todos, Vencem Hoje, Devedores, +30d e Em Dia com o polegar.',
+      'Contador numérico dinâmico dentro de cada pílula de filtro informando a quantidade exata de clientes em cada situação.',
+      'Botão de 1 toque (✕) no campo de busca para limpar rapidamente a pesquisa em celulares.',
+      'Lista de clientes visível imediatamente ao abrir o aplicativo, eliminando toques desnecessários.'
+    ]
+  },
+  {
     versao: 'v1.2.47',
     data: '08/11/2026',
     titulo: 'Comprovante de Pagamento Aprimorado no WhatsApp com PIX do Saldo Restante',
-    destaque: true,
+    destaque: false,
     adicionado: [
       'Recibo no WhatsApp mais profissional e legível, com separadores limpos e destaque visual para valor recebido, data e forma de pagamento.',
       'Inclusão automática do código PIX Copia e Cola do saldo restante quando a conta ainda não foi quitada, facilitando o próximo acerto.',
