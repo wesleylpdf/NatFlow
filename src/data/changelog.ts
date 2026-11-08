@@ -10,7 +10,7 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
-    versao: 'v1.2.37',
+    versao: 'v1.2.38',
     data: '08/11/2026',
     titulo: 'Modernização do Sistema: Aposentadoria da Coluna data_promessa',
     destaque: true,

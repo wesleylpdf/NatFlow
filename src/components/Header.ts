@@ -94,9 +94,11 @@ export function abrirModalMeuPerfil(aoSalvar?: () => void): void {
  */
 export function abrirModalChangelog(): void {
   const versoesHTML = CHANGELOG.map((item, idx) => {
-    const ehMaisRecente = idx === 0
+    const versaoItemNum = item.versao.replace(/^v/i, '')
+    const ehMaisRecente = versaoItemNum === __BUILD_VERSION__ || idx === 0
+    const rotuloVersao = ehMaisRecente ? `v${__BUILD_VERSION__}` : item.versao
     const badgeVersao = ehMaisRecente
-      ? `<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black tracking-wide shrink-0">Atual • ${escaparHTML(item.versao)}</span>`
+      ? `<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black tracking-wide shrink-0">Atual • ${escaparHTML(rotuloVersao)}</span>`
       : `<span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold shrink-0">${escaparHTML(item.versao)}</span>`
 
     const secaoAdicionado =
@@ -192,7 +194,7 @@ export function abrirModalChangelog(): void {
               Atualizações do NatFlow
             </h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Histórico de novidades, o que foi alterado e o que foi removido.
+              Versão instalada: <strong class="text-emerald-600 dark:text-emerald-400 font-black">v${__BUILD_VERSION__}</strong> • Histórico de novidades e melhorias.
             </p>
           </div>
         </div>

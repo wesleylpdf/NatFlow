@@ -35,18 +35,24 @@ export async function bump(tipo) {
   const pkg = JSON.parse(await readFile(PKG_PATH, 'utf-8'))
   const { major, minor, patch } = parseVersion(pkg.version)
 
+  // Em ambientes de CI / Vercel, preserva estritamente a versão commitada no repositório
+  // para evitar o "double-bump" (incremento duplo entre máquina local e servidor).
+  if (process.env.VERCEL || process.env.CI || process.env.CF_PAGES || process.env.NETLIFY) {
+    console.log(`[NatFlow] Ambiente de deploy/CI detectado (${process.env.VERCEL ? 'Vercel' : 'CI'}). Mantendo versão ${pkg.version}`)
+    return
+  }
+
   let proximo
   if (tipo === 'grande' || tipo === 'major') {
     proximo = { major, minor: minor + 1, patch: 0 }
   } else if (tipo === 'build' || tipo === 'auto') {
-    // Se acabou de ser setada uma versão grande (patch 0) e ainda não tem o index-<versao>.html no dist,
-    // preserva a versão grande atual para este primeiro build.
+    // Se a versão atual ainda não foi gerada no dist, preserva para este build
     const indexVersaoPath = resolve(ROOT, 'dist', `index-${pkg.version}.html`)
-    if (patch === 0 && !existsSync(indexVersaoPath)) {
-      console.log(`[NatFlow] Versão mantida para build inicial: ${pkg.version}`)
+    if (!existsSync(indexVersaoPath)) {
+      console.log(`[NatFlow] Versão mantida para build atual: ${pkg.version}`)
       return
     }
-    // Caso padrão em build: incrementa versão pequena (patch)
+    // Caso padrão em build local repetido: incrementa versão pequena (patch)
     proximo = { major, minor, patch: patch + 1 }
   } else {
     // pequena / patch
