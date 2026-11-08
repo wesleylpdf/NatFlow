@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.4',
+    data: '08/11/2026',
+    titulo: 'Página Clicável de Pagamento PIX com Cópia com 1 Toque e QR Code',
+    destaque: true,
+    adicionado: [
+      'Link direto e clicável nas mensagens do WhatsApp direcionando para a nova página de pagamento PIX.',
+      'Nova página exclusiva /pix.html responsiva para celulares: exibe valor, beneficiário, QR Code e botão gigante de cópia com 1 toque.',
+      'Suporte a cópia com 1 clique tanto do código PIX Copia e Cola quanto da chave PIX isolada.'
+    ]
+  },
+  {
     versao: 'v1.3.3',
     data: '08/11/2026',
     titulo: 'Formatação de Bloco Monospaced do PIX Copia e Cola no WhatsApp',

@@ -21,7 +21,7 @@ if (typeof window !== 'undefined') {
 
 export interface OpcoesPix {
   chavePix?: string | null
-  nomeProfissional?: string | null
+  nomeProfissional?: string | null | null
 }
 
 export async function gerarExtratoPdf(
@@ -249,6 +249,27 @@ export async function gerarExtratoPdf(
 }
 
 /**
+ * Gera URL direta para a página de pagamento e cópia com 1 clique do PIX
+ */
+export function gerarLinkPagamentoPix(opcoes: {
+  chavePix: string
+  valor?: number
+  nomeProfissional?: string | null
+  codigoPix?: string
+}): string {
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin && window.location.origin.startsWith('http')
+      ? window.location.origin
+      : 'https://nat-flow-one.vercel.app'
+  const params = new URLSearchParams()
+  if (opcoes.chavePix) params.set('chave', opcoes.chavePix)
+  if (typeof opcoes.valor === 'number' && opcoes.valor > 0) params.set('valor', opcoes.valor.toFixed(2))
+  if (opcoes.nomeProfissional) params.set('nome', opcoes.nomeProfissional)
+  if (opcoes.codigoPix) params.set('c', opcoes.codigoPix)
+  return `${origin}/pix.html?${params.toString()}`
+}
+
+/**
  * Monta a mensagem textual amigável com o resumo financeiro e chave PIX
  */
 export function montarTextoResumoExtrato(
@@ -283,8 +304,15 @@ export function montarTextoResumoExtrato(
       nomeBeneficiario: opcoes.nomeProfissional || undefined,
       valor: saldoDevedor,
     })
+    const linkPix = gerarLinkPagamentoPix({
+      chavePix: opcoes.chavePix,
+      valor: saldoDevedor,
+      nomeProfissional: opcoes.nomeProfissional,
+      codigoPix: pixCopiaECola || undefined,
+    })
+    mensagemTexto += `\n\n👉 *Toque no link para copiar o PIX com 1 clique:*\n${linkPix}`
     if (pixCopiaECola) {
-      mensagemTexto += `\n\n📋 *PIX Copia e Cola (toque no bloco abaixo para copiar):*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
+      mensagemTexto += `\n\n📋 *Código Copia e Cola direto:*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
     }
   }
 
@@ -586,8 +614,15 @@ export function enviarLembreteCobrancaWhatsApp(
       nomeBeneficiario: opcoes.nomeProfissional || undefined,
       valor: saldoDevedor > 0 ? saldoDevedor : undefined,
     })
+    const linkPix = gerarLinkPagamentoPix({
+      chavePix: opcoes.chavePix,
+      valor: saldoDevedor > 0 ? saldoDevedor : undefined,
+      nomeProfissional: opcoes.nomeProfissional,
+      codigoPix: pixCopiaECola || undefined,
+    })
+    msg += `\n\n👉 *Toque no link para copiar o PIX com 1 clique:*\n${linkPix}`
     if (pixCopiaECola) {
-      msg += `\n\n📋 *PIX Copia e Cola (toque no bloco abaixo para copiar):*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
+      msg += `\n\n📋 *Código Copia e Cola direto:*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
       try {
         if (navigator?.clipboard?.writeText) {
           void navigator.clipboard.writeText(pixCopiaECola)
@@ -642,8 +677,15 @@ export function enviarLembreteAcertoWhatsApp(
       nomeBeneficiario: opcoes.nomeProfissional || undefined,
       valor: acerto.valor,
     })
+    const linkPix = gerarLinkPagamentoPix({
+      chavePix: opcoes.chavePix,
+      valor: acerto.valor,
+      nomeProfissional: opcoes.nomeProfissional,
+      codigoPix: pixCopiaECola || undefined,
+    })
+    msg += `\n\n👉 *Toque no link para copiar o PIX com 1 clique:*\n${linkPix}`
     if (pixCopiaECola) {
-      msg += `\n\n📋 *PIX Copia e Cola (toque no bloco abaixo para copiar):*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
+      msg += `\n\n📋 *Código Copia e Cola direto:*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
       try {
         if (navigator?.clipboard?.writeText) {
           void navigator.clipboard.writeText(pixCopiaECola)
@@ -712,8 +754,15 @@ export function enviarReciboPagamentoWhatsApp(
         nomeBeneficiario: opcoes.nomeProfissional || undefined,
         valor: saldoAtual,
       })
+      const linkPix = gerarLinkPagamentoPix({
+        chavePix: opcoes.chavePix,
+        valor: saldoAtual,
+        nomeProfissional: opcoes.nomeProfissional,
+        codigoPix: pixCopiaECola || undefined,
+      })
+      msg += `\n\n👉 *Toque no link para copiar o PIX do saldo restante:*\n${linkPix}`
       if (pixCopiaECola) {
-        msg += `\n\n📋 *PIX Copia e Cola do saldo restante (toque no bloco abaixo para copiar):*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
+        msg += `\n\n📋 *Código Copia e Cola direto:*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
         try {
           if (navigator?.clipboard?.writeText) {
             void navigator.clipboard.writeText(pixCopiaECola)
