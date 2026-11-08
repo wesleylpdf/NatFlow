@@ -10,10 +10,22 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.46',
+    data: '08/11/2026',
+    titulo: 'Lembrete de Parcela no WhatsApp e Gerador de PIX Copia e Cola',
+    destaque: true,
+    adicionado: [
+      'Botão de 1 toque no card da parcela pendente (💬) para enviar lembrete amigável no WhatsApp direto para o cliente.',
+      'Geração automática do código padrão oficial do Banco Central (PIX Copia e Cola / BR Code) com o valor exato da parcela ou do saldo devedor.',
+      'O cliente só precisa tocar para copiar o código no WhatsApp e colar no app do banco (Nubank, Inter, Itaú, etc.), já com valor e beneficiário preenchidos.',
+      'Design compacto e otimizado para celulares pequenos sem poluir a visualização do Cronograma de Acertos.'
+    ]
+  },
+  {
     versao: 'v1.2.45',
     data: '08/11/2026',
     titulo: 'Compatibilidade com Node.js 22 e Estabilidade na Integração Contínua (CI)',
-    destaque: true,
+    destaque: false,
     alterado: [
       'Atualização do ambiente de Integração Contínua (GitHub Actions CI) para Node.js 22 LTS, eliminando avisos de depreciação do Node 20.',
       'Suporte nativo a WebSocket habilitado no pipeline de testes e build.',

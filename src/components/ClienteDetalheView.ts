@@ -43,6 +43,7 @@ import {
 import { calcularResumo } from '@/utils/saldo'
 import {
   abrirModalOpcoesExtrato,
+  enviarLembreteAcertoWhatsApp,
   enviarLembreteCobrancaWhatsApp,
   enviarReciboPagamentoWhatsApp,
 } from '@/utils/exportarPdf'
@@ -357,10 +358,15 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                         <div class="flex items-center gap-1 shrink-0">
                           ${
                             !pago
-                              ? `<button type="button" data-quitar-acerto="${a.id}" class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Quitar este acerto e registrar pagamento">
+                              ? `
+                                <button type="button" data-cobrar-acerto="${a.id}" class="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Lembrar esta parcela no WhatsApp com PIX">
+                                  <span class="text-xs">💬</span>
+                                </button>
+                                <button type="button" data-quitar-acerto="${a.id}" class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Quitar este acerto e registrar pagamento">
                                   <span>💰</span>
                                   <span>Quitar</span>
-                                </button>`
+                                </button>
+                              `
                               : ''
                           }
                           <button data-editar-acerto="${a.id}" class="${cls.btnIcone} text-xs" title="Editar acerto">✏️</button>
@@ -922,6 +928,19 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       } catch (err) {
         toast.error(mensagemErro(err, 'Erro ao ajustar parcelas'))
       }
+    })
+
+    painelEl.querySelectorAll<HTMLElement>('[data-cobrar-acerto]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.cobrarAcerto!
+        const acerto = acertos.find(a => a.id === id)
+        if (!acerto || !cliente) return
+        const opcoesPix = {
+          chavePix: perfil?.chave_pix,
+          nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
+        }
+        enviarLembreteAcertoWhatsApp(cliente, acerto, opcoesPix)
+      })
     })
 
     painelEl.querySelectorAll<HTMLElement>('[data-quitar-acerto]').forEach(btn => {

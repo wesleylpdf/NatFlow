@@ -1,8 +1,9 @@
-import type { Cliente, ClienteComSaldo, Compra, Pagamento } from '@/types'
+import type { Acerto, Cliente, ClienteComSaldo, Compra, Pagamento } from '@/types'
 import { formatarData, formatarDataHora, formatarMoeda, obterInfoFormaPagamento, escaparHTML } from '@/utils/format'
 import { calcularResumo } from '@/utils/saldo'
 import { toast } from '@/utils/toast'
 import { criarOverlay } from '@/components/Modal'
+import { gerarPixCopiaECola } from '@/utils/pix'
 
 let promessaJsPdf: Promise<typeof import('jspdf')> | null = null
 
@@ -541,7 +542,7 @@ export function abrirModalOpcoesExtrato(
 }
 
 /**
- * Envia uma mensagem amigável e direta de lembrete de cobrança no WhatsApp com a chave PIX
+ * Envia uma mensagem amigável e direta de lembrete de cobrança no WhatsApp com a chave PIX e código Copia e Cola
  */
 export function enviarLembreteCobrancaWhatsApp(
   cliente: Cliente | ClienteComSaldo,
@@ -558,18 +559,27 @@ export function enviarLembreteCobrancaWhatsApp(
 
   let msg =
     `Olá, ${cliente.nome}! Tudo bem? 🌸\n\n` +
-    `Passando para enviar o lembrete do seu saldo em aberto na Natura:\n\n` +
-    `📌 Valor pendente: ${formatarBRL(saldoDevedor)}`
+    `Passando para enviar o lembrete do seu saldo em aberto:\n\n` +
+    `📌 *Valor pendente:* ${formatarBRL(saldoDevedor)}`
 
   const proximoAcerto = (cliente as ClienteComSaldo).proximo_acerto_data
   if (proximoAcerto) {
-    msg += `\n🗓️ Data combinada para acerto: ${formatarData(proximoAcerto)}`
+    msg += `\n🗓️ *Data combinada para acerto:* ${formatarData(proximoAcerto)}`
   }
 
   if (opcoes?.chavePix) {
-    msg += `\n🔑 Chave PIX: ${opcoes.chavePix}`
+    msg += `\n\n🔑 *Chave PIX:* ${opcoes.chavePix}`
     if (opcoes.nomeProfissional) {
       msg += ` (${opcoes.nomeProfissional})`
+    }
+
+    const pixCopiaECola = gerarPixCopiaECola({
+      chavePix: opcoes.chavePix,
+      nomeBeneficiario: opcoes.nomeProfissional || undefined,
+      valor: saldoDevedor > 0 ? saldoDevedor : undefined,
+    })
+    if (pixCopiaECola) {
+      msg += `\n\n📋 *PIX Copia e Cola (toque e segure para copiar):*\n${pixCopiaECola}`
     }
   }
 
@@ -578,7 +588,56 @@ export function enviarLembreteCobrancaWhatsApp(
   const textoMsg = encodeURIComponent(msg)
   const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
   window.open(urlWhats, '_blank')
-  toast.success('WhatsApp aberto com lembrete de cobrança!')
+  toast.success('WhatsApp aberto com lembrete e PIX!')
+}
+
+/**
+ * Envia lembrete amigável de uma parcela específica (Acerto) no WhatsApp
+ * com data de vencimento, valor exato e código PIX Copia e Cola.
+ */
+export function enviarLembreteAcertoWhatsApp(
+  cliente: Cliente | ClienteComSaldo,
+  acerto: Acerto,
+  opcoes?: OpcoesPix
+): void {
+  const telLimpo = cliente.telefone.replace(/\D/g, '')
+  if (!telLimpo || telLimpo.length < 10) {
+    toast.warning('O cliente não possui telefone válido cadastrado para o WhatsApp.')
+    return
+  }
+
+  const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
+  const desc = acerto.descricao?.trim() ? acerto.descricao.trim() : 'Parcela combinada'
+
+  let msg =
+    `Olá, ${cliente.nome}! Tudo bem? 🌸\n\n` +
+    `Passando para enviar o lembrete da sua parcela:\n\n` +
+    `📌 *Item:* ${desc}\n` +
+    `🗓️ *Vencimento:* ${formatarData(acerto.data)}\n` +
+    `💰 *Valor:* ${formatarBRL(acerto.valor)}`
+
+  if (opcoes?.chavePix) {
+    msg += `\n\n🔑 *Chave PIX:* ${opcoes.chavePix}`
+    if (opcoes.nomeProfissional) {
+      msg += ` (${opcoes.nomeProfissional})`
+    }
+
+    const pixCopiaECola = gerarPixCopiaECola({
+      chavePix: opcoes.chavePix,
+      nomeBeneficiario: opcoes.nomeProfissional || undefined,
+      valor: acerto.valor,
+    })
+    if (pixCopiaECola) {
+      msg += `\n\n📋 *PIX Copia e Cola (toque e segure para copiar):*\n${pixCopiaECola}`
+    }
+  }
+
+  msg += `\n\nAssim que realizar o pagamento, me envie o comprovante por aqui, por favor! Qualquer dúvida, estou à disposição. Muito obrigada! ✨`
+
+  const textoMsg = encodeURIComponent(msg)
+  const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
+  window.open(urlWhats, '_blank')
+  toast.success('WhatsApp aberto com lembrete da parcela e PIX!')
 }
 
 /**
