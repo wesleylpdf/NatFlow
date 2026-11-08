@@ -1762,38 +1762,270 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       if (!pagamento) return
 
       if (alvo.dataset.editar) {
-        abrirFormModal({
-          titulo: 'Editar pagamento',
-          campos: [
-            { nome: 'valor', label: 'Valor pago (R$)', tipo: 'valor', valor: valorParaInput(pagamento.valor), obrigatorio: true },
-            {
-              nome: 'forma_pagamento',
-              label: 'Forma de pagamento',
-              tipo: 'select',
-              valor: pagamento.forma_pagamento || 'pix',
-              opcoes: [
-                { valor: 'pix', label: '💠 PIX' },
-                { valor: 'dinheiro', label: '💵 Dinheiro' },
-                { valor: 'credito', label: '💳 Cartão de Crédito' },
-                { valor: 'debito', label: '💳 Cartão de Débito' },
-                { valor: 'outro', label: '🏷️ Outro' },
-              ],
-            },
-            { nome: 'data', label: 'Data', tipo: 'date', valor: pagamento.data, obrigatorio: true },
-            { nome: 'descricao', label: 'Descrição (opcional)', tipo: 'text', valor: pagamento.descricao ?? '' },
-          ],
-          onSalvar: async v => {
-            await atualizarPagamento(pagamento.id, {
-              valor: validarValor(v.valor),
-              data: validarData(v.data),
-              descricao: v.descricao,
-              forma_pagamento: v.forma_pagamento,
-            })
-            toast.success('Pagamento atualizado!')
-            await recarregarLancamentos()
-          },
-        })
+        abrirModalEditarPagamento(pagamento)
         return
+      }
+
+      function abrirModalEditarPagamento(pag: Pagamento): void {
+        const descLimpa = pag.descricao?.trim() || ''
+        let acertoAlvo = descLimpa
+          ? acertosPendentes.find(a => a.descricao?.trim().toLowerCase() === descLimpa.toLowerCase())
+          : undefined
+
+        if (!acertoAlvo && descLimpa) {
+          const infoParcelaPag = parseDescricaoParcela(descLimpa)
+          if (infoParcelaPag) {
+            acertoAlvo = acertosPendentes.find(a => {
+              const infoA = parseDescricaoParcela(a.descricao)
+              return infoA && infoA.prefixo.toLowerCase() === infoParcelaPag.prefixo.toLowerCase()
+            })
+          }
+        }
+
+        if (!acertoAlvo && acertosPendentes.length > 0) {
+          acertoAlvo = acertosPendentes[0]
+        }
+
+        const overlay = criarOverlay(`
+          <form id="form-editar-pagamento" class="space-y-4">
+            <div class="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-lg shrink-0">
+                  ✏️
+                </div>
+                <div>
+                  <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+                    Editar Pagamento
+                  </h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Altere os dados deste pagamento e sincronize com as parcelas.
+                  </p>
+                </div>
+              </div>
+              <button type="button" data-fechar class="${cls.btnIcone} text-lg shrink-0" title="Fechar">✕</button>
+            </div>
+
+            <!-- Campos -->
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Valor pago (R$) *
+                </label>
+                <input
+                  id="input-editar-pag-valor"
+                  type="text"
+                  inputmode="decimal"
+                  value="${valorParaInput(pag.valor)}"
+                  required
+                  class="${cls.input} text-base sm:text-lg font-black"
+                />
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Forma de Pagamento
+                  </label>
+                  <select id="select-editar-pag-forma" class="${cls.input} text-xs">
+                    <option value="pix" ${pag.forma_pagamento === 'pix' ? 'selected' : ''}>💠 PIX</option>
+                    <option value="dinheiro" ${pag.forma_pagamento === 'dinheiro' ? 'selected' : ''}>💵 Dinheiro</option>
+                    <option value="credito" ${pag.forma_pagamento === 'credito' ? 'selected' : ''}>💳 Cartão de Crédito</option>
+                    <option value="debito" ${pag.forma_pagamento === 'debito' ? 'selected' : ''}>💳 Cartão de Débito</option>
+                    <option value="outro" ${pag.forma_pagamento === 'outro' ? 'selected' : ''}>🏷️ Outro</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Data do Pagamento *
+                  </label>
+                  <input
+                    id="input-editar-pag-data"
+                    type="date"
+                    value="${pag.data}"
+                    required
+                    class="${cls.input} text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Descrição (opcional)
+                </label>
+                <input
+                  id="input-editar-pag-desc"
+                  type="text"
+                  value="${escaparHTML(pag.descricao || '')}"
+                  placeholder="Ex: Parcela 1/2, Quitação parcial..."
+                  class="${cls.input} text-xs"
+                />
+              </div>
+            </div>
+
+            <!-- Caixa Dinâmica de Sincronização no Cronograma (Opção A + C) -->
+            <div id="box-sincronizar-edicao" class="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 space-y-1.5">
+              <label class="flex items-start gap-2.5 cursor-pointer select-none">
+                <input id="chk-sincronizar-edicao" type="checkbox" checked class="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                <div class="min-w-0">
+                  <span class="text-xs font-black text-slate-900 dark:text-white block">
+                    Sincronizar alteração no Cronograma de Acertos (Recomendado)
+                  </span>
+                  <p id="texto-explicativo-edicao" class="text-[11px] text-slate-600 dark:text-slate-400 leading-tight mt-0.5">
+                    Se o valor mudar, a diferença será recalculada automaticamente na parcela correspondente.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <!-- Ações -->
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button type="button" data-fechar class="${cls.btnSecundario} text-xs py-2 px-3">
+                Cancelar
+              </button>
+              <button id="btn-salvar-edicao-pagamento" type="submit" class="${cls.btnPrimario} text-xs py-2 px-4 flex items-center gap-1.5">
+                <span>💾</span>
+                <span>Salvar Alterações</span>
+              </button>
+            </div>
+          </form>
+        `)
+
+        const fechar = (): void => overlay.remove()
+        overlay.querySelectorAll('[data-fechar]').forEach(btn => btn.addEventListener('click', fechar))
+
+        overlay.addEventListener('click', e => {
+          if (e.target === overlay) fechar()
+        })
+
+        const onKeyDown = (e: KeyboardEvent): void => {
+          if (e.key === 'Escape') {
+            fechar()
+            document.removeEventListener('keydown', onKeyDown)
+          }
+        }
+        document.addEventListener('keydown', onKeyDown)
+
+        const form = overlay.querySelector<HTMLFormElement>('#form-editar-pagamento')!
+        const valorInput = overlay.querySelector<HTMLInputElement>('#input-editar-pag-valor')!
+        const formaSelect = overlay.querySelector<HTMLSelectElement>('#select-editar-pag-forma')!
+        const dataInput = overlay.querySelector<HTMLInputElement>('#input-editar-pag-data')!
+        const descInput = overlay.querySelector<HTMLInputElement>('#input-editar-pag-desc')!
+        const chkSincronizar = overlay.querySelector<HTMLInputElement>('#chk-sincronizar-edicao')!
+        const textoExplicativoEl = overlay.querySelector<HTMLElement>('#texto-explicativo-edicao')!
+        const btnSalvar = overlay.querySelector<HTMLButtonElement>('#btn-salvar-edicao-pagamento')!
+
+        function atualizarTextoExplicativo(): void {
+          try {
+            const novoVal = validarValor(valorInput.value)
+            const dif = Math.round((novoVal - pag.valor) * 100) / 100
+            if (Math.abs(dif) < 0.01) {
+              textoExplicativoEl.innerHTML = `O valor de <strong>${formatarMoeda(pag.valor)}</strong> não foi alterado. Nenhuma mudança no Cronograma.`
+            } else if (dif < 0) {
+              const valorDevolver = Math.abs(dif)
+              if (acertoAlvo) {
+                textoExplicativoEl.innerHTML = `O pagamento diminuiu <strong>${formatarMoeda(valorDevolver)}</strong>. Esse valor será somado de volta no acerto <strong>"${escaparHTML(acertoAlvo.descricao || 'Acerto')}"</strong> (passará de ${formatarMoeda(acertoAlvo.valor)} para <strong>${formatarMoeda(acertoAlvo.valor + valorDevolver)}</strong>).`
+              } else {
+                textoExplicativoEl.innerHTML = `O pagamento diminuiu <strong>${formatarMoeda(valorDevolver)}</strong>. Esse valor será recriado no Cronograma para cobrir o saldo reaberto.`
+              }
+            } else {
+              const valorAbater = dif
+              if (acertoAlvo) {
+                const novoValAcerto = Math.max(0, Math.round((acertoAlvo.valor - valorAbater) * 100) / 100)
+                textoExplicativoEl.innerHTML = `O pagamento aumentou <strong>${formatarMoeda(valorAbater)}</strong>. Esse valor extra abaterá o acerto <strong>"${escaparHTML(acertoAlvo.descricao || 'Acerto')}"</strong> (passará de ${formatarMoeda(acertoAlvo.valor)} para <strong>${formatarMoeda(novoValAcerto)}</strong>).`
+              } else {
+                textoExplicativoEl.innerHTML = `O pagamento aumentou <strong>${formatarMoeda(valorAbater)}</strong>. Esse valor extra abaterá automaticamente os acertos pendentes.`
+              }
+            }
+          } catch {
+            textoExplicativoEl.textContent = 'Digite um valor válido para calcular a sincronização.'
+          }
+        }
+
+        valorInput.addEventListener('input', atualizarTextoExplicativo)
+        atualizarTextoExplicativo()
+
+        form.addEventListener('submit', async ev => {
+          ev.preventDefault()
+          btnSalvar.disabled = true
+          btnSalvar.textContent = 'Salvando...'
+          try {
+            const novoValor = validarValor(valorInput.value)
+            const novaData = validarData(dataInput.value)
+            const novaForma = formaSelect.value
+            const novaDesc = descInput.value.trim()
+            const deveSincronizar = chkSincronizar.checked
+            const dif = Math.round((novoValor - pag.valor) * 100) / 100
+
+            // 1. Atualiza o registro do pagamento
+            await atualizarPagamento(pag.id, {
+              valor: novoValor,
+              data: novaData,
+              descricao: novaDesc,
+              forma_pagamento: novaForma,
+            })
+
+            // 2. Se a opção estiver marcada e o valor foi alterado, sincroniza com o Cronograma
+            if (deveSincronizar && Math.abs(dif) >= 0.01) {
+              if (dif < 0) {
+                // Pagamento diminuiu: devolve a diferença para a parcela/acerto
+                const valorRestaurar = Math.abs(dif)
+                const res = await restaurarAcertoDePagamentoExcluido(
+                  clienteId,
+                  { valor: valorRestaurar, data: novaData, descricao: novaDesc },
+                  acertoAlvo?.id
+                )
+                if (res.acertoAtualizado) {
+                  toast.success(
+                    `Pagamento atualizado e ${formatarMoeda(valorRestaurar)} somado de volta na parcela (total: ${formatarMoeda(res.acertoAtualizado.valor)})! 🎉`
+                  )
+                } else if (res.acertoCriado) {
+                  toast.success(
+                    `Pagamento atualizado e parcela de ${formatarMoeda(res.acertoCriado.valor)} recriada no Cronograma! 🎉`
+                  )
+                }
+              } else {
+                // Pagamento aumentou: abate a diferença extra das parcelas
+                const valorExtra = dif
+                if (acertoAlvo) {
+                  if (valorExtra >= acertoAlvo.valor - 0.05) {
+                    await excluirAcerto(acertoAlvo.id, clienteId)
+                    const sobra = valorExtra - acertoAlvo.valor
+                    if (sobra > 0.05) {
+                      await abaterAcertosComPagamento(clienteId, sobra)
+                    }
+                    toast.success(
+                      `Pagamento atualizado e ${acertoAlvo.descricao ? `"${acertoAlvo.descricao}"` : 'parcela'} quitada no Cronograma! 🎉`
+                    )
+                  } else {
+                    const novoValAcerto = Math.round((acertoAlvo.valor - valorExtra) * 100) / 100
+                    await atualizarAcerto(acertoAlvo.id, clienteId, { valor: novoValAcerto })
+                    await reajustarDescricoesParcelas(clienteId)
+                    toast.success(
+                      `Pagamento atualizado e parcela abatida para ${formatarMoeda(novoValAcerto)}! 🎉`
+                    )
+                  }
+                } else {
+                  await abaterAcertosComPagamento(clienteId, valorExtra)
+                  toast.success('Pagamento atualizado e Cronograma sincronizado com sucesso!')
+                }
+              }
+            } else {
+              toast.success('Pagamento atualizado com sucesso!')
+            }
+
+            // Se o saldo total do cliente foi zerado com essa edição, limpa eventuais acertos pendentes
+            if (saldoDevedor - dif <= 0.009) {
+              await limparAcertosPendentes(clienteId)
+            }
+
+            fechar()
+            await recarregarLancamentos()
+          } catch (err) {
+            toast.error(mensagemErro(err, 'Erro ao atualizar pagamento'))
+            btnSalvar.disabled = false
+            btnSalvar.textContent = 'Salvar Alterações'
+          }
+        })
       }
 
       function abrirModalExcluirPagamento(pag: Pagamento): void {

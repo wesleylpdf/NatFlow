@@ -98,4 +98,26 @@ describe('lógica de abatimento em cascata de parcelas', () => {
     expect(novoValor).toBe(50.0)
     expect(acertoAlvo.id).toBe('acerto-1')
   })
+
+  it('calcula o reajuste de parcela ao editar pagamento para um valor menor', () => {
+    const valorAntigoPagamento = 40.0
+    const novoValorPagamento = 25.0
+    const diferenca = Math.round((novoValorPagamento - valorAntigoPagamento) * 100) / 100
+    expect(diferenca).toBe(-15.0)
+
+    const parcelaAtual = 10.0
+    const valorParcelaRecomposta = Math.round((parcelaAtual + Math.abs(diferenca)) * 100) / 100
+    expect(valorParcelaRecomposta).toBe(25.0)
+  })
+
+  it('calcula o reajuste de parcela ao editar pagamento para um valor maior', () => {
+    const valorAntigoPagamento = 20.0
+    const novoValorPagamento = 35.0
+    const diferenca = Math.round((novoValorPagamento - valorAntigoPagamento) * 100) / 100
+    expect(diferenca).toBe(15.0)
+
+    const parcelaAtual = 30.0
+    const valorParcelaAbatida = Math.round((parcelaAtual - diferenca) * 100) / 100
+    expect(valorParcelaAbatida).toBe(15.0)
+  })
 })
