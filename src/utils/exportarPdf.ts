@@ -642,7 +642,7 @@ export function enviarLembreteAcertoWhatsApp(
 
 /**
  * Envia um recibo/comprovante individual de pagamento pelo WhatsApp com detalhes,
- * forma de pagamento e saldo restante atualizado.
+ * forma de pagamento, saldo restante atualizado e código PIX do saldo restante.
  */
 export function enviarReciboPagamentoWhatsApp(
   cliente: Cliente | ClienteComSaldo,
@@ -659,35 +659,48 @@ export function enviarReciboPagamentoWhatsApp(
   const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
   const formaInfo = obterInfoFormaPagamento(pagamento.forma_pagamento)
 
-  let msg = `🧾 COMPROVANTE DE PAGAMENTO\n`
+  let msg = `*🧾 COMPROVANTE DE PAGAMENTO*\n`
   msg += `━━━━━━━━━━━━━━━━━━━━━\n`
-  msg += `👤 Cliente: ${cliente.nome}\n`
-  msg += `💰 Valor Recebido: ${formatarBRL(pagamento.valor)}\n`
-  msg += `📅 Data: ${formatarData(pagamento.data)}\n`
-  msg += `💳 Forma de Pagamento: ${formaInfo.icone} ${formaInfo.label}\n`
+  msg += `👤 *Cliente:* ${cliente.nome}\n`
+  msg += `💰 *Valor Recebido:* ${formatarBRL(pagamento.valor)}\n`
+  msg += `📅 *Data:* ${formatarData(pagamento.data)}\n`
+  msg += `💳 *Forma:* ${formaInfo.icone} ${formaInfo.label}\n`
   if (pagamento.descricao && pagamento.descricao.trim()) {
-    msg += `📝 Descrição: ${pagamento.descricao.trim()}\n`
+    msg += `📝 *Descrição:* ${pagamento.descricao.trim()}\n`
   }
   msg += `━━━━━━━━━━━━━━━━━━━━━\n`
 
   if (saldoAtual <= 0) {
-    msg += `✅ Situação da Conta: 100% quitada! Muito obrigada! 🎉\n`
+    msg += `\n✅ *Situação da Conta:* 100% quitada! Muito obrigada pela pontualidade! 🎉\n`
   } else {
-    msg += `📌 Saldo Restante em Aberto: ${formatarBRL(saldoAtual)}\n`
+    msg += `\n📌 *Saldo Restante em Aberto:* ${formatarBRL(saldoAtual)}\n`
     const proximoAcerto = (cliente as ClienteComSaldo).proximo_acerto_data
     if (proximoAcerto) {
-      msg += `🗓️ Próximo Vencimento / Acerto: ${formatarData(proximoAcerto)}\n`
+      msg += `🗓️ *Próximo Vencimento:* ${formatarData(proximoAcerto)}\n`
+    }
+
+    if (opcoes?.chavePix) {
+      msg += `\n🔑 *Chave PIX:* ${opcoes.chavePix}`
+      if (opcoes.nomeProfissional) {
+        msg += ` (${opcoes.nomeProfissional})`
+      }
+
+      const pixCopiaECola = gerarPixCopiaECola({
+        chavePix: opcoes.chavePix,
+        nomeBeneficiario: opcoes.nomeProfissional || undefined,
+        valor: saldoAtual,
+      })
+      if (pixCopiaECola) {
+        msg += `\n\n📋 *PIX Copia e Cola do saldo restante (toque e segure para copiar):*\n${pixCopiaECola}`
+      }
     }
   }
 
-  if (opcoes?.nomeProfissional || opcoes?.chavePix) {
-    msg += `\nEmitido por: ${opcoes.nomeProfissional || 'NatFlow'}`
-    if (opcoes.chavePix) {
-      msg += `\n🔑 Chave PIX: ${opcoes.chavePix}`
-    }
+  if (opcoes?.nomeProfissional) {
+    msg += `\n\n_Emitido por: ${opcoes.nomeProfissional}_`
   }
 
-  msg += `\n\nMuito obrigada pela preferência! Ficamos à disposição. ✨`
+  msg += `\n\nMuito obrigada pela preferência e confiança! Ficamos à disposição. ✨`
 
   const textoMsg = encodeURIComponent(msg)
   const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`

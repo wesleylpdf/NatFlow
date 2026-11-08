@@ -10,10 +10,22 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.47',
+    data: '08/11/2026',
+    titulo: 'Comprovante de Pagamento Aprimorado no WhatsApp com PIX do Saldo Restante',
+    destaque: true,
+    adicionado: [
+      'Recibo no WhatsApp mais profissional e legível, com separadores limpos e destaque visual para valor recebido, data e forma de pagamento.',
+      'Inclusão automática do código PIX Copia e Cola do saldo restante quando a conta ainda não foi quitada, facilitando o próximo acerto.',
+      'Mensagem comemorativa automática quando o pagamento quita 100% da conta do cliente.',
+      'Opção interativa "Abrir comprovante no WhatsApp ao confirmar" na janela de quitação de parcelas para envio imediato com apenas 1 clique.'
+    ]
+  },
+  {
     versao: 'v1.2.46',
     data: '08/11/2026',
     titulo: 'Lembrete de Parcela no WhatsApp e Gerador de PIX Copia e Cola',
-    destaque: true,
+    destaque: false,
     adicionado: [
       'Botão de 1 toque no card da parcela pendente (💬) para enviar lembrete amigável no WhatsApp direto para o cliente.',
       'Geração automática do código padrão oficial do Banco Central (PIX Copia e Cola / BR Code) com o valor exato da parcela ou do saldo devedor.',

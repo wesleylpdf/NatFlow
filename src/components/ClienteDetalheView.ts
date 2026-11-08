@@ -842,6 +842,12 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
             </select>
           </div>
 
+          <!-- Opção de comprovante via WhatsApp -->
+          <label class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none">
+            <input type="checkbox" id="chk-enviar-comprovante-whats" class="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" ${c.telefone ? 'checked' : 'disabled'}>
+            <span class="font-semibold">📲 Abrir comprovante no WhatsApp ao confirmar</span>
+          </label>
+
           <!-- Botões de Ação: Cancelar e Confirmar -->
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
             <button type="button" data-fechar class="${cls.btnSecundario} text-xs py-2 px-3">
@@ -877,6 +883,9 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         btnConfirmar.disabled = true
         btnConfirmar.textContent = 'Quitando...'
         try {
+          const chkWhats = overlay.querySelector<HTMLInputElement>('#chk-enviar-comprovante-whats')
+          const abrirWhats = Boolean(chkWhats?.checked)
+
           await criarPagamento({
             cliente_id: clienteId,
             valor: acerto.valor,
@@ -889,6 +898,26 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
           toast.success(`Parcela de ${formatarMoeda(acerto.valor)} quitada com sucesso! 🎉`)
           fechar()
+
+          if (abrirWhats && cliente) {
+            const { saldoDevedor: saldoAtual } = calcularResumo(compras, pagamentos)
+            const novoSaldo = Math.max(0, Math.round((saldoAtual - acerto.valor) * 100) / 100)
+            const opcoesPix = {
+              chavePix: perfil?.chave_pix,
+              nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
+            }
+            const pagTemp: Pagamento = {
+              id: 'temp-' + Date.now(),
+              cliente_id: clienteId,
+              valor: acerto.valor,
+              data: hojeISO(),
+              descricao: acerto.descricao || 'Quitação de parcela',
+              forma_pagamento: formaSelect.value,
+              created_at: new Date().toISOString(),
+            }
+            enviarReciboPagamentoWhatsApp(cliente, pagTemp, novoSaldo, opcoesPix)
+          }
+
           await recarregarLancamentos()
         } catch (err) {
           toast.error(mensagemErro(err, 'Erro ao quitar parcela'))
