@@ -29,6 +29,7 @@
             if (!dados || !dados.version || dados.version === versaoAtual) return
             try {
               localStorage.setItem('natflow_ultima_versao', versaoAtual)
+              localStorage.setItem('natflow_atualizado_flag', dados.version)
             } catch (e) {}
             url.searchParams.set('v', dados.version)
             url.searchParams.set('_t', String(Date.now()))

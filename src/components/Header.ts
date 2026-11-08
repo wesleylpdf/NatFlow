@@ -6,6 +6,7 @@ import { escaparHTML } from '@/utils/format'
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, sincronizarBarraSistema } from '@/utils/ui'
 import { acionarInstalacaoPWA, onDisponibilidadeInstalacao } from '@/utils/pwaInstall'
+import { testarNotificacaoAtualizacao, verificarAtualizacaoManual } from '@/utils/atualizacao'
 
 const CHAVE_TEMA = 'natflow_tema'
 
@@ -198,7 +199,17 @@ export function abrirModalChangelog(): void {
         <button type="button" data-fechar class="${cls.btnIcone} text-lg shrink-0" title="Fechar">✕</button>
       </div>
 
-      <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+      <!-- Barra de Ferramentas de Atualização -->
+      <div class="flex items-center gap-2 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+        <button id="btn-verificar-att-modal" type="button" class="flex-1 inline-flex items-center justify-center gap-1.5 text-[11px] font-bold py-1.5 px-2.5 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 active:scale-95 transition shadow-sm cursor-pointer" title="Verificar se há nova versão no servidor">
+          <span>🔍</span> Verificar Atualizações
+        </button>
+        <button id="btn-testar-att-modal" type="button" class="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold py-1.5 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 active:scale-95 transition shadow-sm cursor-pointer" title="Testar e visualizar como a notificação de atualização aparece">
+          <span>🧪</span> Testar Notificação
+        </button>
+      </div>
+
+      <div class="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
         ${versoesHTML}
       </div>
 
@@ -213,6 +224,15 @@ export function abrirModalChangelog(): void {
   const fechar = (): void => overlay.remove()
   overlay.querySelectorAll('[data-fechar]').forEach(btn => btn.addEventListener('click', fechar))
 
+  overlay.querySelector('#btn-verificar-att-modal')?.addEventListener('click', () => {
+    void verificarAtualizacaoManual()
+  })
+
+  overlay.querySelector('#btn-testar-att-modal')?.addEventListener('click', () => {
+    fechar()
+    testarNotificacaoAtualizacao()
+  })
+
   overlay.addEventListener('click', e => {
     if (e.target === overlay) fechar()
   })
@@ -224,6 +244,10 @@ export function abrirModalChangelog(): void {
     }
   }
   document.addEventListener('keydown', onKeyDown)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('natflow:abrir-changelog', () => abrirModalChangelog())
 }
 
 export async function criarHeader(container: HTMLElement, email: string): Promise<void> {

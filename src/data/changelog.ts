@@ -10,10 +10,22 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.30',
+    data: '08/11/2026',
+    titulo: 'Central de Notificações e Teste de Atualizações',
+    destaque: true,
+    adicionado: [
+      'Banner destacado de nova versão com opções de atualizar instantaneamente ou consultar o que mudou.',
+      'Botões "🧪 Testar Notificação" e "🔍 Verificar Atualizações" adicionados no modal da versão no cabeçalho.'
+    ],
+    alterado: [
+      'Notificação pós-carregamento ajustada para garantir visibilidade com a tela pronta e carregada.'
+    ]
+  },
+  {
     versao: 'v1.2.27',
     data: '08/11/2026',
     titulo: 'Layout Otimizado do Cronograma de Acertos',
-    destaque: true,
     alterado: [
       'Título "Cronograma de Acertos" posicionado no topo, acima dos botões de ação.',
       'Botões "Parcelar Saldo" e "Novo Acerto" alinhados lado a lado na mesma linha sem quebra de linha.'
