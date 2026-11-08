@@ -10,10 +10,20 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.50',
+    data: '08/11/2026',
+    titulo: 'Alinhamento de Nome e Telefone na Mesma Linha no Card de Clientes',
+    destaque: true,
+    alterado: [
+      'Nome e telefone exibidos lado a lado na mesma linha no topo do card do cliente.',
+      'Melhor aproveitamento do espaço vertical mantendo visual limpo e fluido em celulares.'
+    ]
+  },
+  {
     versao: 'v1.2.49',
     data: '08/11/2026',
     titulo: 'Reorganização Espaçosa dos Cards de Clientes para Mobile',
-    destaque: true,
+    destaque: false,
     alterado: [
       'Novo layout em linhas dedicadas nos cards de clientes: Linha 1 com nome, telefone e badge de saldo sem espremer o texto.',
       'Linha 2 com botões de ação amplos (32x32px ideais para o polegar): WhatsApp verde (💬), Editar índigo (✏️) e Excluir vermelho (🗑️).',

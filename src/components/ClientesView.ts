@@ -550,9 +550,9 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
               <div class="w-9 h-9 rounded-full ${estiloAvatar} flex items-center justify-center font-black text-sm shrink-0">
                 ${escaparHTML(c.nome.trim().charAt(0).toUpperCase())}
               </div>
-              <div class="min-w-0 flex-1">
-                <p class="font-bold text-sm text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</p>
+              <div class="min-w-0 flex-1 flex items-baseline gap-2 flex-wrap">
+                <span class="font-bold text-sm text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 truncate font-normal">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>
               </div>
             </div>
             <div class="shrink-0">
