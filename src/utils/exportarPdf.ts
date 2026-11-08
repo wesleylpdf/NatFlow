@@ -278,6 +278,14 @@ export function montarTextoResumoExtrato(
     if (opcoes.nomeProfissional) {
       mensagemTexto += ` (${opcoes.nomeProfissional})`
     }
+    const pixCopiaECola = gerarPixCopiaECola({
+      chavePix: opcoes.chavePix,
+      nomeBeneficiario: opcoes.nomeProfissional || undefined,
+      valor: saldoDevedor,
+    })
+    if (pixCopiaECola) {
+      mensagemTexto += `\n\n📋 *PIX Copia e Cola (toque no bloco abaixo para copiar):*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
+    }
   }
 
   return mensagemTexto
@@ -579,7 +587,14 @@ export function enviarLembreteCobrancaWhatsApp(
       valor: saldoDevedor > 0 ? saldoDevedor : undefined,
     })
     if (pixCopiaECola) {
-      msg += `\n\n📋 *PIX Copia e Cola (toque e segure para copiar):*\n${pixCopiaECola}`
+      msg += `\n\n📋 *PIX Copia e Cola (toque no bloco abaixo para copiar):*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
+      try {
+        if (navigator?.clipboard?.writeText) {
+          void navigator.clipboard.writeText(pixCopiaECola)
+        }
+      } catch {
+        // clipboard opcional
+      }
     }
   }
 
@@ -628,7 +643,14 @@ export function enviarLembreteAcertoWhatsApp(
       valor: acerto.valor,
     })
     if (pixCopiaECola) {
-      msg += `\n\n📋 *PIX Copia e Cola (toque e segure para copiar):*\n${pixCopiaECola}`
+      msg += `\n\n📋 *PIX Copia e Cola (toque no bloco abaixo para copiar):*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
+      try {
+        if (navigator?.clipboard?.writeText) {
+          void navigator.clipboard.writeText(pixCopiaECola)
+        }
+      } catch {
+        // clipboard opcional
+      }
     }
   }
 
@@ -691,7 +713,14 @@ export function enviarReciboPagamentoWhatsApp(
         valor: saldoAtual,
       })
       if (pixCopiaECola) {
-        msg += `\n\n📋 *PIX Copia e Cola do saldo restante (toque e segure para copiar):*\n${pixCopiaECola}`
+        msg += `\n\n📋 *PIX Copia e Cola do saldo restante (toque no bloco abaixo para copiar):*\n\`\`\`\n${pixCopiaECola}\n\`\`\``
+        try {
+          if (navigator?.clipboard?.writeText) {
+            void navigator.clipboard.writeText(pixCopiaECola)
+          }
+        } catch {
+          // clipboard opcional
+        }
       }
     }
   }

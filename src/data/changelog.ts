@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.3',
+    data: '08/11/2026',
+    titulo: 'Formatação de Bloco Monospaced do PIX Copia e Cola no WhatsApp',
+    destaque: true,
+    alterado: [
+      'Código PIX Copia e Cola formatado em bloco monospaced (```) nas mensagens do WhatsApp, facilitando a cópia com um único toque no celular do cliente.',
+      'Instrução clara para a cliente: "toque no bloco abaixo para copiar".',
+      'Inclusão do código PIX Copia e Cola no envio do extrato com resumo financeiro no WhatsApp.'
+    ]
+  },
+  {
     versao: 'v1.3.2',
     data: '08/11/2026',
     titulo: 'Resiliência e Persistência da Chave PIX e Cópia Automática',
