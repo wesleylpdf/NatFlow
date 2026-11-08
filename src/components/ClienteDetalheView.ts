@@ -330,11 +330,8 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                   `
                 })()
               : `
-                <div class="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-50/70 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10">
-                  <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Nenhum acerto combinado no momento</span>
-                  <button id="btn-agendar-promessa-vazia" type="button" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-1">
-                    🗓️ Combinar Data
-                  </button>
+                <div class="p-3 rounded-2xl bg-slate-50/70 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 text-center">
+                  <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Nenhum acerto agendado no momento. Use os botões acima para <strong>Parcelar Saldo</strong> ou agendar um <strong>Novo Acerto</strong>.</span>
                 </div>
               `
             : `
@@ -512,11 +509,13 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       const valorSugerido = saldoDevedor > 0 ? saldoDevedor : 0
 
       const overlay = criarOverlay(`
-        <div class="space-y-4">
+        <div class="space-y-4 max-w-lg mx-auto">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">➗ Parcelar Saldo / Acertos</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Divida o valor em múltiplas datas combinadas para este cliente.</p>
+              <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">➗ Parcelar Saldo</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Gere as parcelas e personalize as datas ou valores individualmente antes de agendar.
+              </p>
             </div>
             <button type="button" data-fechar class="${cls.btnIcone} text-lg" title="Fechar">✕</button>
           </div>
@@ -557,14 +556,24 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
             </div>
 
             <div>
-              <label class="${cls.label}" for="parc-prefixo-desc">Identificação (opcional)</label>
-              <input id="parc-prefixo-desc" type="text" class="${cls.input}" placeholder="Ex: Parcela da compra..." maxlength="80">
+              <label class="${cls.label}" for="parc-prefixo-desc">Identificação base (opcional)</label>
+              <input id="parc-prefixo-desc" type="text" class="${cls.input}" placeholder="Ex: Compra do ciclo..." maxlength="80">
             </div>
 
-            <!-- Preview das Parcelas -->
-            <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
-              <span class="block text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Prévia do Cronograma</span>
-              <div id="parc-preview-lista" class="space-y-1.5 max-h-44 overflow-y-auto pr-1"></div>
+            <!-- Lista Editável das Parcelas -->
+            <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="block text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Parcelas (edite datas e valores livremente)
+                </span>
+                <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">✏️ editável</span>
+              </div>
+              <div id="parc-preview-lista" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+              
+              <div id="parc-rodape-total" class="flex items-center justify-between text-xs font-bold pt-2 border-t border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
+                <span>Soma: <strong id="parc-soma-atual" class="font-black text-slate-900 dark:text-white">R$ 0,00</strong></span>
+                <span id="parc-status-diferenca" class="text-[11px]"></span>
+              </div>
             </div>
 
             <div class="flex justify-end gap-2 pt-2">
@@ -588,10 +597,42 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       const inputDataPrimeira = overlay.querySelector<HTMLInputElement>('#parc-data-primeira')!
       const inputDesc = overlay.querySelector<HTMLInputElement>('#parc-prefixo-desc')!
       const previewEl = overlay.querySelector<HTMLElement>('#parc-preview-lista')!
+      const somaSituacaoEl = overlay.querySelector<HTMLElement>('#parc-soma-atual')!
+      const diffSituacaoEl = overlay.querySelector<HTMLElement>('#parc-status-diferenca')!
 
-      function calcularParcelas(): { data: string; valor: number; descricao: string }[] {
+      function atualizarSomaRodape(): void {
+        const linhas = previewEl.querySelectorAll<HTMLElement>('.item-parcela-linha')
+        let soma = 0
+        linhas.forEach(l => {
+          const valInput = l.querySelector<HTMLInputElement>('.input-parc-valor')
+          if (valInput && valInput.value) {
+            const v = parseValor(valInput.value)
+            if (!isNaN(v) && v > 0) soma += v
+          }
+        })
+
+        const totalInformado = parseValor(inputTotal.value) || 0
+        somaSituacaoEl.textContent = formatarMoeda(soma)
+
+        const diff = Math.round((soma - totalInformado) * 100) / 100
+        if (Math.abs(diff) < 0.01) {
+          diffSituacaoEl.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-extrabold">✓ 100% distribuído</span>`
+        } else if (diff > 0) {
+          diffSituacaoEl.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-bold">+${formatarMoeda(diff)} a mais que o total</span>`
+        } else {
+          diffSituacaoEl.innerHTML = `<span class="text-amber-600 dark:text-amber-400 font-bold">${formatarMoeda(Math.abs(diff))} a distribuir</span>`
+        }
+      }
+
+      function regenerarLinhas(): void {
         const total = parseValor(inputTotal.value)
-        if (isNaN(total) || total <= 0) return []
+        if (isNaN(total) || total <= 0) {
+          previewEl.innerHTML = `<p class="text-xs text-rose-500 font-bold p-2">Informe um valor total válido maior que zero.</p>`
+          somaSituacaoEl.textContent = formatarMoeda(0)
+          diffSituacaoEl.innerHTML = ''
+          return
+        }
+
         const qtd = parseInt(selectQtd.value, 10) || 1
         const intervalo = selectIntervalo.value as 'quinzenal' | 'mensal' | 'semanal'
         const dataInicio = inputDataPrimeira.value || hojeISO()
@@ -601,61 +642,75 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         const baseCentavos = Math.floor(valorCentavos / qtd)
         const restoCentavos = valorCentavos - baseCentavos * qtd
 
-        const resultado: { data: string; valor: number; descricao: string }[] = []
-
-        for (let i = 0; i < qtd; i++) {
+        previewEl.innerHTML = Array.from({ length: qtd }, (_, i) => {
           const valorItem = (i === 0 ? baseCentavos + restoCentavos : baseCentavos) / 100
           const dataItem = calcularDataFutura(dataInicio, intervalo, i)
-          const descItem = descPrefixo
-            ? `${descPrefixo} (${i + 1}/${qtd})`
-            : `Parcela ${i + 1}/${qtd}`
-          resultado.push({ data: dataItem, valor: valorItem, descricao: descItem })
-        }
+          const descItem = descPrefixo ? `${descPrefixo} (${i + 1}/${qtd})` : `Parcela ${i + 1}/${qtd}`
 
-        return resultado
-      }
-
-      function atualizarPreview(): void {
-        const parcelas = calcularParcelas()
-        if (parcelas.length === 0) {
-          previewEl.innerHTML = `<p class="text-xs text-rose-500 font-bold">Informe um valor total válido maior que zero.</p>`
-          return
-        }
-        previewEl.innerHTML = parcelas
-          .map(
-            p => `
-            <div class="flex items-center justify-between text-xs p-1.5 rounded-lg bg-white dark:bg-slate-700/60 border border-slate-200/60 dark:border-slate-600/60">
-              <span class="font-extrabold text-slate-700 dark:text-slate-300">${escaparHTML(p.descricao)}</span>
-              <div class="flex items-center gap-2">
-                <span class="text-slate-500 dark:text-slate-400 font-medium">🗓️ ${formatarData(p.data)}</span>
-                <span class="font-black text-slate-900 dark:text-white">${formatarMoeda(p.valor)}</span>
+          return `
+            <div class="item-parcela-linha p-2 rounded-xl bg-white dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600/80 space-y-1.5" data-idx="${i}">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300">#${i + 1}</span>
+                <input type="text" class="${cls.input} text-xs py-1 px-2 font-medium flex-1 min-w-0 input-parc-desc" value="${escaparHTML(descItem)}" placeholder="Descrição">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5">🗓️ Data</label>
+                  <input type="date" class="${cls.input} text-xs py-1.5 px-2 font-bold input-parc-data" value="${dataItem}" required>
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5">💰 Valor (R$)</label>
+                  <input type="text" inputmode="decimal" class="${cls.input} text-xs py-1.5 px-2 font-black text-right input-parc-valor" value="${valorParaInput(valorItem)}" required autocomplete="off">
+                </div>
               </div>
             </div>
           `
-          )
-          .join('')
+        }).join('')
+
+        previewEl.querySelectorAll<HTMLInputElement>('.input-parc-valor').forEach(input => {
+          input.addEventListener('input', atualizarSomaRodape)
+        })
+
+        atualizarSomaRodape()
       }
 
-      inputTotal.addEventListener('input', atualizarPreview)
-      selectQtd.addEventListener('change', atualizarPreview)
-      inputDataPrimeira.addEventListener('input', atualizarPreview)
-      inputDesc.addEventListener('input', atualizarPreview)
+      inputTotal.addEventListener('input', regenerarLinhas)
+      selectQtd.addEventListener('change', regenerarLinhas)
+      inputDataPrimeira.addEventListener('input', regenerarLinhas)
+      inputDesc.addEventListener('input', regenerarLinhas)
 
       selectIntervalo.addEventListener('change', () => {
         const intervalo = selectIntervalo.value as 'quinzenal' | 'mensal' | 'semanal'
         inputDataPrimeira.value = calcularDataFutura(hojeISO(), intervalo, 1)
-        atualizarPreview()
+        regenerarLinhas()
       })
 
-      atualizarPreview()
+      regenerarLinhas()
 
       form.addEventListener('submit', async e => {
         e.preventDefault()
-        const parcelas = calcularParcelas()
-        if (parcelas.length === 0) {
-          toast.warning('Informe dados válidos para gerar as parcelas.')
+        const linhas = previewEl.querySelectorAll<HTMLElement>('.item-parcela-linha')
+        if (linhas.length === 0) {
+          toast.warning('Nenhuma parcela gerada.')
           return
         }
+
+        const parcelas: { data: string; valor: number; descricao: string }[] = []
+        try {
+          linhas.forEach((linha, i) => {
+            const dataVal = linha.querySelector<HTMLInputElement>('.input-parc-data')?.value || ''
+            const valorVal = linha.querySelector<HTMLInputElement>('.input-parc-valor')?.value || ''
+            const descVal = linha.querySelector<HTMLInputElement>('.input-parc-desc')?.value.trim() || `Parcela ${i + 1}`
+
+            const data = validarData(dataVal)
+            const valor = validarValor(valorVal)
+            parcelas.push({ data, valor, descricao: descVal })
+          })
+        } catch (err) {
+          toast.error(mensagemErro(err, 'Verifique as datas e valores informados nas parcelas'))
+          return
+        }
+
         const btnSalvar = form.querySelector<HTMLButtonElement>('#btn-salvar-parcelamento')!
         btnSalvar.disabled = true
         try {
@@ -673,7 +728,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
     painelEl.querySelector('#btn-parcelar-saldo')?.addEventListener('click', abrirModalParcelamento)
     painelEl.querySelector('#btn-novo-acerto')?.addEventListener('click', abrirModalNovoAcerto)
-    painelEl.querySelector('#btn-agendar-promessa-vazia')?.addEventListener('click', abrirModalNovoAcerto)
     painelEl.querySelector('#btn-alterar-promessa-legada')?.addEventListener('click', abrirModalPromessaLegada)
     painelEl.querySelector('#btn-remover-promessa-legada')?.addEventListener('click', removerPromessaLegada)
 
