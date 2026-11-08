@@ -267,7 +267,7 @@ export function montarTextoResumoExtrato(
         : `Conta *em dia*! (R$ 0,00)`
 
   let mensagemTexto =
-    `Olá, *${cliente.nome}*! Segue o resumo financeiro atualizado da sua conta no Natura:\n\n` +
+    `Olá, *${cliente.nome}*! Segue o resumo financeiro atualizado da sua conta na Natura:\n\n` +
     `🛍️ Total de produtos comprados: *${formatarBRL(totalCompras)}*\n` +
     `💵 Total pago: *${formatarBRL(totalPagamentos)}*\n` +
     `📌 ${situacao}`
