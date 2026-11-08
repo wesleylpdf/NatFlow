@@ -10,10 +10,22 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.0',
+    data: '08/11/2026',
+    titulo: 'Nova Aba Resumo Financeiro, Cards 100% Clicáveis e Layout Espaçoso',
+    destaque: true,
+    adicionado: [
+      'Aba exclusiva de Resumo Financeiro como primeira opção do menu, com navegação por mês, balanço geral de entradas e saídas e detalhamento por forma de pagamento.',
+      'Card do cliente 100% clicável: tocar em qualquer espaço ou texto do card abre diretamente o perfil completo do cliente, sem áreas mortas.',
+      'Novo layout espaçoso de 4 linhas no card: Linha 1 com nome e telefone lado a lado; Linha 2 com botões amplos para o polegar (WhatsApp verde 💬, Editar índigo ✏️, Excluir vermelho 🗑️) e badge de status alinhado à direita; Linha 3 com autoria; Linha 4 com resumo de acertos.',
+      'Reorganização da barra de navegação: Resumo Financeiro 📊 > Clientes 👥 > Histórico de Alterações 📜 > Equipe & Permissões 👥🔑.'
+    ]
+  },
+  {
     versao: 'v1.2.50',
     data: '08/11/2026',
     titulo: 'Alinhamento de Nome e Telefone na Mesma Linha no Card de Clientes',
-    destaque: true,
+    destaque: false,
     alterado: [
       'Nome e telefone exibidos lado a lado na mesma linha no topo do card do cliente.',
       'Melhor aproveitamento do espaço vertical mantendo visual limpo e fluido em celulares.'

@@ -7,13 +7,11 @@ import {
 } from '@/services/clientes'
 import { carregarMapaMembros, obterPerfilAtual } from '@/services/equipe'
 import { enviarLembreteCobrancaWhatsApp } from '@/utils/exportarPdf'
-import { obterResumoFinanceiro } from '@/services/financeiro'
-import type { ClienteComSaldo, ResumoFinanceiro } from '@/types'
+import type { ClienteComSaldo } from '@/types'
 import {
   escaparHTML,
   formatarAutoriaResumida,
   formatarData,
-  formatarMesAno,
   formatarMoeda,
   formatarTelefone,
   obterStatusPromessa,
@@ -55,36 +53,19 @@ function badgeSaldo(saldo: number, diasAtraso: number = 0): string {
 }
 
 /**
- * Tela inicial: resumo financeiro por período, cadastro e lista de clientes com filtros rápidos.
+ * Tela inicial: cadastro e lista completa de clientes com filtros rápidos e ações diretas.
  */
 export async function renderClientes(container: HTMLElement): Promise<void> {
   container.innerHTML = loadingHTML()
 
-  // Controle de período financeiro
-  const dataHoje = new Date()
-  let periodoTipo: 'mes' | 'tudo' = 'mes'
-  let periodoAno = dataHoje.getFullYear()
-  let periodoMes = dataHoje.getMonth() + 1 // 1 a 12
-
-  let resumoFin: ResumoFinanceiro = {
-    totalRecebido: 0,
-    totalVendido: 0,
-    saldoPeriodo: 0,
-    porFormaPagamento: { pix: 0, dinheiro: 0, credito: 0, debito: 0, outro: 0 },
-    quantidadePagamentos: 0,
-    quantidadeVendas: 0,
-  }
-
   let clientes: ClienteComSaldo[]
   let mapaMembros = new Map<string, string>()
   try {
-    const [listaClientes, resumoInicial, mapa] = await Promise.all([
+    const [listaClientes, mapa] = await Promise.all([
       listarClientesComSaldo(),
-      obterResumoFinanceiro({ ano: periodoAno, mes: periodoMes }),
       carregarMapaMembros(),
     ])
     clientes = listaClientes
-    resumoFin = resumoInicial
     mapaMembros = mapa
   } catch (e) {
     try {
@@ -101,21 +82,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   let busca = ''
   let filtroStatus: FiltroStatus = 'todos'
 
-  async function atualizarResumoFinanceiro(): Promise<void> {
-    try {
-      resumoFin = await obterResumoFinanceiro(
-        periodoTipo === 'tudo'
-          ? { tudo: true }
-          : { ano: periodoAno, mes: periodoMes }
-      )
-    } catch (e) {
-      console.warn('Erro ao obter resumo financeiro:', e)
-      toast.error(mensagemErro(e, 'Erro ao carregar resumo financeiro'))
-    } finally {
-      renderResumo()
-    }
-  }
-
   const recarregar = async (): Promise<void> => {
     try {
       ;[clientes, mapaMembros] = await Promise.all([
@@ -123,7 +89,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         carregarMapaMembros(),
       ])
       renderLista()
-      await atualizarResumoFinanceiro()
       const contador = container.querySelector('#contador-clientes')
       if (contador) contador.textContent = `(${clientes.length})`
     } catch (e) {
@@ -133,8 +98,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
   container.innerHTML = `
     <div class="max-w-3xl mx-auto space-y-4">
-      <section id="resumo-geral" class="relative overflow-hidden bg-white/95 text-slate-900 border border-slate-200/90 shadow-md dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-emerald-950 dark:text-white dark:border-slate-800 p-4 sm:p-5 rounded-3xl space-y-3.5"></section>
-
       <!-- Sanfona: Cadastrar Cliente -->
       <section class="${cls.card} p-4 sm:p-5">
         <button id="btn-toggle-cadastro" type="button" class="w-full flex items-center justify-between font-black text-base text-slate-900 dark:text-white group focus:outline-none">
@@ -179,7 +142,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     </div>
   `
 
-  const resumoEl = container.querySelector<HTMLElement>('#resumo-geral')!
   const listaEl = container.querySelector<HTMLElement>('#lista-clientes')!
   const form = container.querySelector<HTMLFormElement>('#form-cliente')!
   const nomeInput = container.querySelector<HTMLInputElement>('#cliente-nome')!
@@ -200,7 +162,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     setaCadastro.textContent = fechado ? '▼' : '▲'
   })
 
-  // Toggle do acordeão: Clientes (não foca automaticamente para não levantar teclado no celular)
+  // Toggle do acordeão: Clientes
   btnToggleClientes.addEventListener('click', () => {
     const fechado = corpoClientes.classList.toggle('hidden')
     setaClientes.textContent = fechado ? '▼' : '▲'
@@ -215,199 +177,12 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     })
   }
 
-  // Event delegation nos botões de período do resumo
-  resumoEl.addEventListener('click', async e => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-acao]')
-    if (!btn) return
-    const acao = btn.dataset.acao
-
-    if (acao === 'mes-anterior') {
-      periodoTipo = 'mes'
-      if (periodoMes === 1) {
-        periodoMes = 12
-        periodoAno--
-      } else {
-        periodoMes--
-      }
-      await atualizarResumoFinanceiro()
-    } else if (acao === 'mes-proximo') {
-      periodoTipo = 'mes'
-      if (periodoMes === 12) {
-        periodoMes = 1
-        periodoAno++
-      } else {
-        periodoMes++
-      }
-      await atualizarResumoFinanceiro()
-    } else if (acao === 'periodo-atual') {
-      periodoTipo = 'mes'
-      periodoAno = dataHoje.getFullYear()
-      periodoMes = dataHoje.getMonth() + 1
-      await atualizarResumoFinanceiro()
-    } else if (acao === 'periodo-anterior') {
-      periodoTipo = 'mes'
-      const ant = new Date(dataHoje.getFullYear(), dataHoje.getMonth() - 1, 1)
-      periodoAno = ant.getFullYear()
-      periodoMes = ant.getMonth() + 1
-      await atualizarResumoFinanceiro()
-    } else if (acao === 'periodo-tudo') {
-      periodoTipo = 'tudo'
-      await atualizarResumoFinanceiro()
-    }
-  })
-
-  function renderResumo(): void {
-    const aReceberGeral = clientes.reduce((acc, c) => acc + (c.saldo_devedor > 0 ? c.saldo_devedor : 0), 0)
-    const devedoresGeral = clientes.filter(c => c.saldo_devedor > 0).length
-    const devedoresAntigosGeral = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
-
-    const rotuloPeriodo =
-      periodoTipo === 'tudo'
-        ? 'Todo o Período'
-        : formatarMesAno(periodoAno, periodoMes)
-
-    const ehMesAtual =
-      periodoTipo === 'mes' &&
-      periodoAno === dataHoje.getFullYear() &&
-      periodoMes === dataHoje.getMonth() + 1
-
-    const dataMesAnterior = new Date(dataHoje.getFullYear(), dataHoje.getMonth() - 1, 1)
-    const ehMesAnterior =
-      periodoTipo === 'mes' &&
-      periodoAno === dataMesAnterior.getFullYear() &&
-      periodoMes === dataMesAnterior.getMonth() + 1
-
-    const corSaldoPeriodo =
-      resumoFin.saldoPeriodo > 0
-        ? 'text-emerald-600 dark:text-emerald-400'
-        : resumoFin.saldoPeriodo < 0
-          ? 'text-rose-600 dark:text-rose-400'
-          : 'text-slate-900 dark:text-white'
-
-    resumoEl.innerHTML = `
-      <!-- Cabeçalho do Resumo com Navegação de Período -->
-      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100 dark:border-white/10">
-        <div class="flex items-center justify-between sm:justify-start gap-2">
-          <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold uppercase tracking-widest">Resumo Financeiro</span>
-          <div class="flex items-center gap-1 bg-slate-100 dark:bg-white/10 rounded-xl px-1.5 py-0.5">
-            <button data-acao="mes-anterior" type="button" class="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-emerald-500 rounded-lg transition active:scale-95" title="Mês anterior">◀</button>
-            <span id="rotulo-mes-ano" class="text-xs font-black text-slate-900 dark:text-white px-1 whitespace-nowrap">${escaparHTML(rotuloPeriodo)}</span>
-            <button data-acao="mes-proximo" type="button" class="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-emerald-500 rounded-lg transition active:scale-95" title="Próximo mês">▶</button>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-1 text-[11px] font-bold" role="group">
-          <button data-acao="periodo-atual" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition active:scale-95 ${
-            ehMesAtual
-              ? 'bg-emerald-600 text-white font-black shadow-sm'
-              : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-          }">Este Mês</button>
-          <button data-acao="periodo-anterior" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition active:scale-95 ${
-            ehMesAnterior
-              ? 'bg-emerald-600 text-white font-black shadow-sm'
-              : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-          }">Mês Anterior</button>
-          <button data-acao="periodo-tudo" type="button" class="flex-1 sm:flex-none px-2.5 py-1 rounded-xl transition active:scale-95 ${
-            periodoTipo === 'tudo'
-              ? 'bg-emerald-600 text-white font-black shadow-sm'
-              : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-          }">Geral</button>
-        </div>
-      </div>
-
-      <!-- 4 Cards Principais de Indicadores -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-black tracking-wide">📥 Entradas</span>
-          <span class="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-300 truncate block">${formatarMoeda(resumoFin.totalRecebido)}</span>
-          <span class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-semibold">${resumoFin.quantidadePagamentos} pagamentos</span>
-        </div>
-
-        <div class="bg-rose-500/10 border border-rose-500/20 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] text-rose-700 dark:text-rose-300 uppercase font-black tracking-wide">🛍️ Vendas</span>
-          <span class="text-base sm:text-lg font-black text-rose-700 dark:text-rose-300 truncate block">${formatarMoeda(resumoFin.totalVendido)}</span>
-          <span class="text-[10px] text-rose-600/80 dark:text-rose-400/80 font-semibold">${resumoFin.quantidadeVendas} produtos</span>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] text-slate-500 dark:text-slate-300 uppercase font-black tracking-wide">⚖️ Balanço</span>
-          <span class="text-base sm:text-lg font-black ${corSaldoPeriodo} truncate block">${formatarMoeda(resumoFin.saldoPeriodo)}</span>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">Entradas − Vendas</span>
-        </div>
-
-        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] text-slate-500 dark:text-slate-300 uppercase font-black tracking-wide">👥 A Receber</span>
-          <span class="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate block">${formatarMoeda(aReceberGeral)}</span>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold block truncate">
-            ${devedoresGeral} devedores${devedoresAntigosGeral > 0 ? ` • <strong class="text-amber-600 dark:text-amber-400">${devedoresAntigosGeral} (+30d)</strong>` : ''}
-          </span>
-        </div>
-      </div>
-
-      <!-- Detalhamento de Entradas por Forma de Pagamento -->
-      <div class="bg-slate-50/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 rounded-2xl p-2.5 sm:p-3">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-300">
-            💳 Entradas por Forma de Pagamento
-          </span>
-          <span class="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">
-            ${escaparHTML(rotuloPeriodo)}
-          </span>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2">
-            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold block">💠 PIX</span>
-            <span class="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 block truncate">${formatarMoeda(resumoFin.porFormaPagamento.pix || 0)}</span>
-          </div>
-          <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2">
-            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold block">💵 Dinheiro</span>
-            <span class="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400 block truncate">${formatarMoeda(resumoFin.porFormaPagamento.dinheiro || 0)}</span>
-          </div>
-          <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2">
-            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold block">💳 Crédito</span>
-            <span class="text-xs sm:text-sm font-black text-sky-600 dark:text-sky-400 block truncate">${formatarMoeda(resumoFin.porFormaPagamento.credito || 0)}</span>
-          </div>
-          <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2">
-            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold block">💳 Débito</span>
-            <span class="text-xs sm:text-sm font-black text-indigo-600 dark:text-indigo-400 block truncate">${formatarMoeda(resumoFin.porFormaPagamento.debito || 0)}</span>
-          </div>
-        </div>
-      </div>
-    `
-  }
-
   function renderLista(): void {
-    const totalTodos = clientes.length
-    const totalDevedores = clientes.filter(c => c.saldo_devedor > 0).length
-    const totalAntigos = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
-    const totalEmDia = clientes.filter(c => c.saldo_devedor <= 0).length
-    const totalPromessas = clientes.filter(c => {
-      const dataProm = c.proximo_acerto_data
-      if (c.saldo_devedor <= 0 || !dataProm) return false
-      const st = obterStatusPromessa(dataProm)?.status
-      return st === 'vence_hoje' || st === 'vencida'
-    }).length
-
-    const selectFiltroEl = container.querySelector<HTMLSelectElement>('#select-filtro-status')
-    if (selectFiltroEl) {
-      selectFiltroEl.value = filtroStatus
-      const optTodos = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="todos"]')
-      const optPromessas = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="promessas"]')
-      const optDevedores = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="devedores"]')
-      const optAntigos = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="antigos"]')
-      const optEmDia = selectFiltroEl.querySelector<HTMLOptionElement>('option[value="em_dia"]')
-      if (optTodos) optTodos.textContent = `⚪ Todos (${totalTodos})`
-      if (optPromessas) optPromessas.textContent = `⏰ Promessas Hoje/Vencidas (${totalPromessas})`
-      if (optDevedores) optDevedores.textContent = `🔴 Débitos (${totalDevedores})`
-      if (optAntigos) optAntigos.textContent = `⚠️ Débitos +30 Dias (${totalAntigos})`
-      if (optEmDia) optEmDia.textContent = `🟢 Em Dia (${totalEmDia})`
-    }
-
     const termo = normalizarBusca(busca.trim())
     const termoDigitos = busca.replace(/\D/g, '')
 
     const filtrados = clientes.filter(c => {
-      // Regra do filtro selecionável
+      // Regras de filtro por status
       if (filtroStatus === 'promessas') {
         const dataProm = c.proximo_acerto_data
         if (c.saldo_devedor <= 0 || !dataProm) return false
@@ -465,46 +240,46 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         let estiloAvatar = ''
 
         if (c.saldo_devedor <= 0) {
-          // 1. Cliente Em Dia (Verde Esmeralda destacado, sem rodapé de acerto)
+          // 1. Cliente Em Dia (Verde Esmeralda destacado)
           estiloCard =
             'border-2 border-emerald-400 bg-emerald-50 hover:bg-emerald-100 dark:border-emerald-600 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 shadow-sm'
           estiloAvatar = 'bg-emerald-600 text-white font-black'
         } else if (infoPromessa && dataPromessa) {
-          // 2. Cliente Devedor COM acerto cadastrado (Vermelho, Laranja Pulsante ou Azul)
+          // 2. Cliente Devedor COM acerto cadastrado
           const dataFormatada = formatarData(dataPromessa).slice(0, 5) // DD/MM
           const valorFormatado = c.proximo_acerto_valor ? ` (${formatarMoeda(c.proximo_acerto_valor)})` : ''
           const qtdRestante =
             c.qtd_acertos_pendentes && c.qtd_acertos_pendentes > 1
-              ? ` • ${c.qtd_acertos_pendentes} restantes`
+              ? ` • ${c.qtd_acertos_pendentes} parcelas`
               : ''
 
-          if (infoPromessa.status === 'vence_hoje') {
+          if (infoPromessa.status === 'vencida') {
             estiloCard =
-              'border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 dark:border-amber-500 dark:bg-amber-950/50 dark:hover:bg-amber-950/70 ring-2 ring-amber-400/60 animate-pulse shadow-sm'
+              'border-2 border-rose-500 bg-rose-50/70 hover:bg-rose-100/70 dark:border-rose-500/80 dark:bg-rose-950/40 shadow-sm'
+            estiloAvatar = 'bg-rose-500 text-white font-black'
+          } else if (infoPromessa.status === 'vence_hoje') {
+            estiloCard =
+              'border-2 border-amber-500 bg-amber-50/70 hover:bg-amber-100/70 dark:border-amber-500/80 dark:bg-amber-950/40 shadow-sm'
             estiloAvatar = 'bg-amber-500 text-slate-950 font-black'
-          } else if (infoPromessa.status === 'vencida') {
-            estiloCard =
-              'border-2 border-rose-500 bg-rose-50 hover:bg-rose-100 dark:border-rose-500 dark:bg-rose-950/50 dark:hover:bg-rose-950/70 ring-2 ring-rose-400/60 shadow-sm'
-            estiloAvatar = 'bg-rose-600 text-white font-black'
           } else {
             estiloCard =
-              'border-2 border-sky-400 bg-sky-50 hover:bg-sky-100 dark:border-sky-500 dark:bg-sky-950/50 dark:hover:bg-sky-950/70 ring-1 ring-sky-400/50 shadow-sm'
+              'border-2 border-sky-400 bg-sky-50/70 hover:bg-sky-100/70 dark:border-sky-500/80 dark:bg-sky-950/40 shadow-sm'
             estiloAvatar = 'bg-sky-600 text-white font-black'
           }
 
           subtituloAcerto = `
-          <div class="flex items-center gap-1.5 text-xs font-black ${
+          <div class="flex items-center gap-1.5 text-xs font-bold ${
             infoPromessa.status === 'vencida'
               ? 'text-rose-700 dark:text-rose-300'
               : infoPromessa.status === 'vence_hoje'
-                ? 'text-amber-800 dark:text-amber-200'
-                : 'text-sky-700 dark:text-sky-300'
+                ? 'text-amber-800 dark:text-amber-300'
+                : 'text-sky-800 dark:text-sky-300'
           }">
             <span class="text-sm shrink-0">${infoPromessa.status === 'vencida' ? '🚨' : infoPromessa.status === 'vence_hoje' ? '⏰' : '🗓️'}</span>
             <span class="truncate">Próximo acerto: ${dataFormatada}${valorFormatado}${qtdRestante}</span>
           </div>`
         } else {
-          // 3. Cliente Devedor SEM acerto cadastrado (Padrão Diferenciado com borda tracejada e rodapé)
+          // 3. Cliente Devedor SEM acerto cadastrado
           if (dias >= 60) {
             estiloCard =
               'border-2 border-dashed border-rose-400 bg-rose-50/40 hover:bg-rose-50/70 dark:border-rose-500/70 dark:bg-rose-950/30 shadow-sm'
@@ -543,42 +318,42 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         const temRodape = Boolean(subtituloAcerto || avisoAtraso)
 
         return `
-        <li class="group flex flex-col ${estiloCard} rounded-2xl p-3 transition space-y-2">
-          <!-- Linha 1: Link principal com Nome, Telefone e Badge de Status/Saldo -->
-          <a href="#/cliente/${c.id}" class="flex items-center justify-between gap-2.5">
-            <div class="flex items-center gap-2.5 min-w-0 flex-1">
-              <div class="w-9 h-9 rounded-full ${estiloAvatar} flex items-center justify-center font-black text-sm shrink-0">
-                ${escaparHTML(c.nome.trim().charAt(0).toUpperCase())}
-              </div>
-              <div class="min-w-0 flex-1 flex items-baseline gap-2 flex-wrap">
-                <span class="font-bold text-sm text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</span>
-                <span class="text-xs text-slate-500 dark:text-slate-400 truncate font-normal">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>
-              </div>
+        <li data-card-cliente="${c.id}" class="group flex flex-col ${estiloCard} rounded-2xl p-3 transition space-y-2 cursor-pointer hover:shadow-md active:scale-[0.99]">
+          <!-- Linha 1: [Avatar] Nome do Cliente (11) 99999-9999 -->
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-full ${estiloAvatar} flex items-center justify-center font-black text-sm shrink-0">
+              ${escaparHTML(c.nome.trim().charAt(0).toUpperCase())}
+            </div>
+            <div class="min-w-0 flex-1 flex items-baseline gap-2 flex-wrap">
+              <span class="font-bold text-sm text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400 truncate font-normal">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>
+            </div>
+          </div>
+
+          <!-- Linha 2 (Ações com botões de 32x32px para o polegar + Badge de status à direita): -->
+          <div class="flex items-center justify-between gap-2 pt-0.5">
+            <div class="flex items-center gap-2">
+              ${
+                c.telefone
+                  ? `<button type="button" data-whats-cliente="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Abrir WhatsApp">
+                      <span class="text-sm">💬</span>
+                    </button>`
+                  : ''
+              }
+              <button type="button" data-editar="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-95 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 transition shadow-xs cursor-pointer" title="Editar cliente">
+                <span class="text-sm">✏️</span>
+              </button>
+              <button type="button" data-excluir="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 active:scale-95 text-rose-700 dark:text-rose-300 border border-rose-500/30 transition shadow-xs cursor-pointer" title="Excluir cliente">
+                <span class="text-sm">🗑️</span>
+              </button>
             </div>
             <div class="shrink-0">
               ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
             </div>
-          </a>
-
-          <!-- Linha 2: Botões de Ação para o polegar (32x32px): WhatsApp verde, Editar índigo e Excluir vermelho -->
-          <div class="flex items-center gap-2 pt-0.5">
-            ${
-              c.telefone
-                ? `<button type="button" data-whats-cliente="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Abrir WhatsApp">
-                    <span class="text-sm">💬</span>
-                  </button>`
-                : ''
-            }
-            <button type="button" data-editar="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-95 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 transition shadow-xs cursor-pointer" title="Editar cliente">
-              <span class="text-sm">✏️</span>
-            </button>
-            <button type="button" data-excluir="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 active:scale-95 text-rose-700 dark:text-rose-300 border border-rose-500/30 transition shadow-xs cursor-pointer" title="Excluir cliente">
-              <span class="text-sm">🗑️</span>
-            </button>
           </div>
 
-          <!-- Linha 3: Autoria do cadastro / edição -->
-          <div class="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">
+          <!-- Linha 3: Autoria em linha própria -->
+          <div class="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 pt-0.5">
             ${formatarAutoriaResumida(c, mapaMembros)}
           </div>
 
@@ -586,10 +361,10 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           ${
             temRodape
               ? `
-            <a href="#/cliente/${c.id}" class="mt-1 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-1 text-left">
+            <div class="mt-1 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-1 text-left">
               ${subtituloAcerto}
               ${avisoAtraso}
-            </a>
+            </div>
           `
               : ''
           }
@@ -632,62 +407,84 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     renderLista()
   })
 
+  // Event delegation com suporte a card 100% clicável
   listaEl.addEventListener('click', async e => {
-    const btnWhats = (e.target as HTMLElement).closest<HTMLElement>('[data-whats-cliente]')
-    if (btnWhats) {
-      e.preventDefault()
-      e.stopPropagation()
-      const id = btnWhats.dataset.whatsCliente!
-      const cliente = clientes.find(c => c.id === id)
-      if (!cliente || !cliente.telefone) return
+    const alvoBotao = (e.target as HTMLElement).closest<HTMLElement>('button')
+    if (alvoBotao) {
+      // 1. WhatsApp
+      const btnWhats = alvoBotao.closest<HTMLElement>('[data-whats-cliente]')
+      if (btnWhats) {
+        e.preventDefault()
+        e.stopPropagation()
+        const id = btnWhats.dataset.whatsCliente!
+        const cliente = clientes.find(c => c.id === id)
+        if (!cliente || !cliente.telefone) return
 
-      if (cliente.saldo_devedor > 0) {
-        try {
-          const perfil = await obterPerfilAtual()
-          const opcoesPix = {
-            chavePix: perfil?.chave_pix,
-            nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
+        if (cliente.saldo_devedor > 0) {
+          try {
+            const perfil = await obterPerfilAtual()
+            const opcoesPix = {
+              chavePix: perfil?.chave_pix,
+              nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
+            }
+            enviarLembreteCobrancaWhatsApp(cliente, cliente.saldo_devedor, opcoesPix)
+          } catch {
+            enviarLembreteCobrancaWhatsApp(cliente, cliente.saldo_devedor)
           }
-          enviarLembreteCobrancaWhatsApp(cliente, cliente.saldo_devedor, opcoesPix)
-        } catch {
-          enviarLembreteCobrancaWhatsApp(cliente, cliente.saldo_devedor)
+        } else {
+          const telLimpo = cliente.telefone.replace(/\D/g, '')
+          const msg = encodeURIComponent(`Olá, ${cliente.nome}! Tudo bem? 🌸`)
+          window.open(`https://api.whatsapp.com/send?phone=55${telLimpo}&text=${msg}`, '_blank')
         }
-      } else {
-        const telLimpo = cliente.telefone.replace(/\D/g, '')
-        const msg = encodeURIComponent(`Olá, ${cliente.nome}! Tudo bem? 🌸`)
-        window.open(`https://api.whatsapp.com/send?phone=55${telLimpo}&text=${msg}`, '_blank')
+        return
       }
-      return
+
+      // 2. Editar
+      const btnEditar = alvoBotao.closest<HTMLElement>('[data-editar]')
+      if (btnEditar) {
+        e.preventDefault()
+        e.stopPropagation()
+        const id = btnEditar.dataset.editar!
+        const cliente = clientes.find(c => c.id === id)
+        if (cliente) abrirEdicaoCliente(cliente, recarregar)
+        return
+      }
+
+      // 3. Excluir
+      const btnExcluir = alvoBotao.closest<HTMLElement>('[data-excluir]')
+      if (btnExcluir) {
+        e.preventDefault()
+        e.stopPropagation()
+        const id = btnExcluir.dataset.excluir!
+        const cliente = clientes.find(c => c.id === id)
+        if (!cliente) return
+
+        const ok = await confirmar({
+          titulo: 'Excluir cliente',
+          mensagem: `Excluir <strong>${escaparHTML(cliente.nome)}</strong>? Todos os produtos e pagamentos deste cliente também serão excluídos. Esta ação não pode ser desfeita.`,
+        })
+        if (!ok) return
+        try {
+          await excluirCliente(id)
+          toast.success('Cliente excluído')
+          await recarregar()
+        } catch (err) {
+          toast.error(mensagemErro(err, 'Erro ao excluir cliente'))
+        }
+        return
+      }
     }
 
-    const alvo = (e.target as HTMLElement).closest<HTMLElement>('[data-editar],[data-excluir]')
-    if (!alvo) return
-    e.preventDefault()
-
-    const id = alvo.dataset.editar ?? alvo.dataset.excluir!
-    const cliente = clientes.find(c => c.id === id)
-    if (!cliente) return
-
-    if (alvo.dataset.editar) {
-      abrirEdicaoCliente(cliente, recarregar)
-      return
-    }
-
-    const ok = await confirmar({
-      titulo: 'Excluir cliente',
-      mensagem: `Excluir <strong>${escaparHTML(cliente.nome)}</strong>? Todos os produtos e pagamentos deste cliente também serão excluídos. Esta ação não pode ser desfeita.`,
-    })
-    if (!ok) return
-    try {
-      await excluirCliente(id)
-      toast.success('Cliente excluído')
-      await recarregar()
-    } catch (err) {
-      toast.error(mensagemErro(err, 'Erro ao excluir cliente'))
+    // Se clicou em qualquer outra parte do card (áreas vazias, avatar, nome, autoria, rodapé):
+    const card = (e.target as HTMLElement).closest<HTMLElement>('[data-card-cliente]')
+    if (card) {
+      const id = card.dataset.cardCliente
+      if (id) {
+        window.location.hash = `#/cliente/${id}`
+      }
     }
   })
 
-  renderResumo()
   renderLista()
 }
 

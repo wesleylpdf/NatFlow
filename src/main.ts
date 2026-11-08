@@ -4,6 +4,7 @@ import { atualizarSenha, initAuth, onAuthChange } from '@/hooks/useAuth'
 import { criarAuthForm } from '@/components/AuthForm'
 import { criarHeader } from '@/components/Header'
 import { renderClientes } from '@/components/ClientesView'
+import { renderResumoFinanceiro } from '@/components/ResumoFinanceiroView'
 import { renderClienteDetalhe } from '@/components/ClienteDetalheView'
 import { renderHistorico } from '@/components/HistoricoView'
 import { renderEquipe } from '@/components/EquipeView'
@@ -46,6 +47,8 @@ function rotear(): void {
 
   if (matchCliente) {
     void renderClienteDetalhe(novo, matchCliente[1])
+  } else if (hash.startsWith('#/financeiro')) {
+    void renderResumoFinanceiro(novo)
   } else if (hash.startsWith('#/historico')) {
     void renderHistorico(novo)
   } else if (hash.startsWith('#/equipe')) {

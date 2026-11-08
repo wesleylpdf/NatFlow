@@ -29,10 +29,16 @@ function atualizarLinksNavegacao(container: HTMLElement): void {
   const links = container.querySelectorAll<HTMLAnchorElement>('[data-nav]')
   links.forEach(link => {
     const rota = link.getAttribute('href')
-    const ativo =
-      rota === '#/'
-        ? hash === '#/' || hash.startsWith('#/cliente')
-        : hash.startsWith(rota || '___')
+    let ativo = false
+    if (rota === '#/financeiro') {
+      ativo = hash.startsWith('#/financeiro')
+    } else if (rota === '#/' || rota === '#/clientes') {
+      ativo = (hash === '#/' || hash === '#/clientes' || hash.startsWith('#/cliente/')) && !hash.startsWith('#/financeiro')
+    } else if (rota === '#/historico') {
+      ativo = hash.startsWith('#/historico')
+    } else if (rota === '#/equipe') {
+      ativo = hash.startsWith('#/equipe')
+    }
 
     if (ativo) {
       link.className =
@@ -380,14 +386,17 @@ export async function criarHeader(container: HTMLElement, email: string): Promis
 
       <!-- Navegação Responsiva Sem Quebra -->
       <nav class="flex items-center gap-1 sm:gap-1.5 bg-white/70 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 p-1 rounded-2xl shadow-sm overflow-x-auto no-scrollbar">
+        <a href="#/financeiro" data-nav class="flex-1 sm:flex-none text-center text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl transition whitespace-nowrap shrink-0">
+          📊 <span class="hidden sm:inline">Resumo Financeiro</span><span class="sm:hidden">Financeiro</span>
+        </a>
         <a href="#/" data-nav class="flex-1 sm:flex-none text-center text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl transition whitespace-nowrap shrink-0">
           👥 Clientes
         </a>
         <a href="#/historico" data-nav class="flex-1 sm:flex-none text-center text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl transition whitespace-nowrap shrink-0">
-          📜 <span class="hidden sm:inline">Histórico de Edições</span><span class="sm:hidden">Histórico</span>
+          📜 <span class="hidden sm:inline">Histórico de Alterações</span><span class="sm:hidden">Histórico</span>
         </a>
         <a href="#/equipe" data-nav class="flex-1 sm:flex-none text-center text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl transition whitespace-nowrap shrink-0">
-          🛡️ <span class="hidden sm:inline">Equipe & Acessos</span><span class="sm:hidden">Equipe</span>
+          👥🔑 <span class="hidden sm:inline">Equipe & Permissões</span><span class="sm:hidden">Equipe</span>
         </a>
       </nav>
     </header>
