@@ -261,19 +261,19 @@ export function montarTextoResumoExtrato(
 
   const situacao =
     saldoDevedor > 0
-      ? `Saldo devedor: *${formatarBRL(saldoDevedor)}*`
+      ? `Saldo devedor: ${formatarBRL(saldoDevedor)}`
       : saldoDevedor < 0
-        ? `Crédito em haver: *${formatarBRL(-saldoDevedor)}*`
-        : `Conta *em dia*! (R$ 0,00)`
+        ? `Crédito em haver: ${formatarBRL(-saldoDevedor)}`
+        : `Conta em dia! (R$ 0,00)`
 
   let mensagemTexto =
-    `Olá, *${cliente.nome}*! Segue o resumo financeiro atualizado da sua conta na Natura:\n\n` +
-    `🛍️ Total de produtos comprados: *${formatarBRL(totalCompras)}*\n` +
-    `💵 Total pago: *${formatarBRL(totalPagamentos)}*\n` +
+    `Olá, ${cliente.nome}! Segue o resumo financeiro atualizado da sua conta na Natura:\n\n` +
+    `🛍️ Total de produtos comprados: ${formatarBRL(totalCompras)}\n` +
+    `💵 Total pago: ${formatarBRL(totalPagamentos)}\n` +
     `📌 ${situacao}`
 
   if (saldoDevedor > 0 && opcoes?.chavePix) {
-    mensagemTexto += `\n🔑 Chave PIX para pagamento: *${opcoes.chavePix}*`
+    mensagemTexto += `\n🔑 Chave PIX para pagamento: ${opcoes.chavePix}`
     if (opcoes.nomeProfissional) {
       mensagemTexto += ` (${opcoes.nomeProfissional})`
     }
@@ -392,7 +392,6 @@ export async function enviarExtratoWhatsApp(
 
   if (incluirPdf) {
     await baixarExtratoPdf(cliente, compras, pagamentos, opcoes)
-    mensagemTexto += `\n\n📄 O arquivo PDF com o extrato detalhado de todos os itens foi baixado. Estou enviando em anexo!`
   }
 
   // Copia o texto para a Área de Transferência como garantia
@@ -558,9 +557,9 @@ export function enviarLembreteCobrancaWhatsApp(
   const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
 
   let msg =
-    `Olá, *${cliente.nome}*! Tudo bem? 🌸\n\n` +
+    `Olá, ${cliente.nome}! Tudo bem? 🌸\n\n` +
     `Passando para enviar o lembrete do seu saldo em aberto na Natura:\n\n` +
-    `📌 Valor pendente: *${formatarBRL(saldoDevedor)}*`
+    `📌 Valor pendente: ${formatarBRL(saldoDevedor)}`
 
   if (cliente.data_promessa) {
     msg += `\n🗓️ Data combinada para acerto: ${formatarData(cliente.data_promessa)}`
@@ -600,10 +599,10 @@ export function enviarReciboPagamentoWhatsApp(
   const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
   const formaInfo = obterInfoFormaPagamento(pagamento.forma_pagamento)
 
-  let msg = `🧾 *COMPROVANTE DE PAGAMENTO*\n`
+  let msg = `🧾 COMPROVANTE DE PAGAMENTO\n`
   msg += `━━━━━━━━━━━━━━━━━━━━━\n`
   msg += `👤 Cliente: ${cliente.nome}\n`
-  msg += `💰 Valor Recebido: *${formatarBRL(pagamento.valor)}*\n`
+  msg += `💰 Valor Recebido: ${formatarBRL(pagamento.valor)}\n`
   msg += `📅 Data: ${formatarData(pagamento.data)}\n`
   msg += `💳 Forma de Pagamento: ${formaInfo.icone} ${formaInfo.label}\n`
   if (pagamento.descricao && pagamento.descricao.trim()) {
@@ -614,7 +613,7 @@ export function enviarReciboPagamentoWhatsApp(
   if (saldoAtual <= 0) {
     msg += `✅ Situação da Conta: 100% quitada! Muito obrigada! 🎉\n`
   } else {
-    msg += `📌 Saldo Restante em Aberto: *${formatarBRL(saldoAtual)}*\n`
+    msg += `📌 Saldo Restante em Aberto: ${formatarBRL(saldoAtual)}\n`
     if (cliente.data_promessa) {
       msg += `🗓️ Próximo Vencimento / Acerto: ${formatarData(cliente.data_promessa)}\n`
     }
