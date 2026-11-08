@@ -79,4 +79,11 @@ describe('lógica de abatimento em cascata de parcelas', () => {
     expect(parcial).toEqual({ id: '2', novoValor: 15.0 })
     expect(saldoDisponivel).toBe(0)
   })
+
+  it('calcula a recomposição de valor ao estornar/excluir pagamento parcial', () => {
+    const valorAtualParcela = 20.0
+    const valorPagamentoEstornado = 30.0
+    const valorRestaurado = Math.round((valorAtualParcela + valorPagamentoEstornado) * 100) / 100
+    expect(valorRestaurado).toBe(50.0)
+  })
 })

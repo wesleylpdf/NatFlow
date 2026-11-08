@@ -17,6 +17,7 @@ import {
   alternarStatusAcerto,
   abaterAcertosComPagamento,
   limparAcertosPendentes,
+  restaurarAcertoDePagamentoExcluido,
   reajustarDescricoesParcelas,
   parseDescricaoParcela,
   formatarDescricaoParcela,
@@ -1795,18 +1796,136 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         return
       }
 
-      const ok = await confirmar({
-        titulo: 'Excluir pagamento',
-        mensagem: `Excluir o pagamento de <strong>${formatarMoeda(pagamento.valor)}</strong> em ${formatarData(pagamento.data)}?`,
-      })
-      if (!ok) return
-      try {
-        await excluirPagamento(pagamento.id)
-        toast.success('Pagamento excluído')
-        await recarregarLancamentos()
-      } catch (err) {
-        toast.error(mensagemErro(err, 'Erro ao excluir pagamento'))
+      function abrirModalExcluirPagamento(pag: Pagamento): void {
+        const formaInfo = obterInfoFormaPagamento(pag.forma_pagamento)
+
+        const overlay = criarOverlay(`
+          <div class="space-y-4">
+            <div class="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-lg shrink-0">
+                  🗑️
+                </div>
+                <div>
+                  <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+                    Excluir Pagamento
+                  </h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Confirme a exclusão do registro deste pagamento.
+                  </p>
+                </div>
+              </div>
+              <button type="button" data-fechar class="${cls.btnIcone} text-lg shrink-0" title="Fechar">✕</button>
+            </div>
+
+            <!-- Dados do Pagamento -->
+            <div class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-500 dark:text-slate-400">Valor do Pagamento</span>
+                <span class="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400">${formatarMoeda(pag.valor)}</span>
+              </div>
+              <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
+                <span>Data</span>
+                <span class="font-bold">${formatarData(pag.data)}</span>
+              </div>
+              <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
+                <span>Forma</span>
+                <span class="font-bold">${formaInfo.icone} ${formaInfo.label}</span>
+              </div>
+              ${
+                pag.descricao && pag.descricao.trim()
+                  ? `<div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-200/60 dark:border-white/10">
+                       <span>Descrição</span>
+                       <span class="font-bold text-right truncate max-w-[60%]">${escaparHTML(pag.descricao.trim())}</span>
+                     </div>`
+                  : ''
+              }
+            </div>
+
+            <!-- Opção de Restauração no Cronograma (Opção A + C) -->
+            <div class="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 space-y-1.5">
+              <label class="flex items-start gap-2.5 cursor-pointer select-none">
+                <input id="chk-restaurar-acerto" type="checkbox" checked class="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                <div class="min-w-0">
+                  <span class="text-xs font-black text-slate-900 dark:text-white block">
+                    Restaurar valor no Cronograma de Acertos (Recomendado)
+                  </span>
+                  <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-tight mt-0.5">
+                    Devolve <strong>${formatarMoeda(pag.valor)}</strong> para a parcela abatida ou recria o agendamento no Cronograma, mantendo as contas e parcelamentos sincronizados.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <!-- Ações -->
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button type="button" data-fechar class="${cls.btnSecundario} text-xs py-2 px-3">
+                Cancelar
+              </button>
+              <button id="btn-confirmar-excluir-pagamento" type="button" class="inline-flex items-center justify-center gap-1.5 text-xs font-black py-2 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white shadow-sm transition cursor-pointer">
+                <span>🗑️</span>
+                <span>Confirmar Exclusão</span>
+              </button>
+            </div>
+          </div>
+        `)
+
+        const fechar = (): void => overlay.remove()
+        overlay.querySelectorAll('[data-fechar]').forEach(btn => btn.addEventListener('click', fechar))
+
+        overlay.addEventListener('click', e => {
+          if (e.target === overlay) fechar()
+        })
+
+        const onKeyDown = (e: KeyboardEvent): void => {
+          if (e.key === 'Escape') {
+            fechar()
+            document.removeEventListener('keydown', onKeyDown)
+          }
+        }
+        document.addEventListener('keydown', onKeyDown)
+
+        const btnConfirmar = overlay.querySelector<HTMLButtonElement>('#btn-confirmar-excluir-pagamento')!
+        const chkRestaurar = overlay.querySelector<HTMLInputElement>('#chk-restaurar-acerto')!
+
+        btnConfirmar.addEventListener('click', async () => {
+          btnConfirmar.disabled = true
+          btnConfirmar.textContent = 'Excluindo...'
+          try {
+            const deveRestaurar = chkRestaurar.checked
+
+            // 1. Exclui o pagamento
+            await excluirPagamento(pag.id)
+
+            // 2. Se a opção estiver marcada, restaura ou recria a parcela no Cronograma
+            if (deveRestaurar) {
+              const res = await restaurarAcertoDePagamentoExcluido(clienteId, pag)
+              if (res.acertoAtualizado) {
+                toast.success(
+                  `Pagamento excluído e parcela restaurada para ${formatarMoeda(res.acertoAtualizado.valor)} no Cronograma! 🎉`
+                )
+              } else if (res.acertoCriado) {
+                toast.success(
+                  `Pagamento excluído e parcela de ${formatarMoeda(res.acertoCriado.valor)} recriada no Cronograma! 🎉`
+                )
+              } else {
+                toast.success('Pagamento excluído com sucesso!')
+              }
+            } else {
+              toast.success('Pagamento excluído com sucesso (sem alterações no Cronograma).')
+            }
+
+            fechar()
+            await recarregarLancamentos()
+          } catch (err) {
+            toast.error(mensagemErro(err, 'Erro ao excluir pagamento'))
+            btnConfirmar.disabled = false
+            btnConfirmar.textContent = 'Confirmar Exclusão'
+          }
+        })
       }
+
+      abrirModalExcluirPagamento(pagamento)
     })
   }
 

@@ -10,10 +10,22 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.42',
+    data: '08/11/2026',
+    titulo: 'Restauração Inteligente de Parcelas ao Excluir Pagamento',
+    destaque: true,
+    adicionado: [
+      'Janela interativa de confirmação ao excluir pagamento com opção "Restaurar valor no Cronograma de Acertos" (ativada por padrão).',
+      'Restauração inteligente de valores parciais: o valor do pagamento excluído é somado de volta na parcela correspondente.',
+      'Recriação automática de parcelas que foram 100% quitadas com renumeração dinâmica e preservação da data.',
+      'Liberdade de escolha: se o usuário preferir, pode desmarcar a opção e excluir apenas o pagamento sem alterar o Cronograma.'
+    ]
+  },
+  {
     versao: 'v1.2.41',
     data: '08/11/2026',
     titulo: 'Visualização de Novidades Antes de Atualizar',
-    destaque: true,
+    destaque: false,
     adicionado: [
       'Visualização imediata das novidades: ao clicar em "Novidades" na notificação de atualização, o histórico agora puxa em tempo real o que mudou na nova versão antes de recarregar.',
       'Destaque no modal indicando a nova versão disponível no servidor e a versão atualmente instalada na aba.',
