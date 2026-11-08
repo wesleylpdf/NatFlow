@@ -192,7 +192,8 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
             nome: 'chave_pix',
             label: 'Chave PIX (opcional)',
             tipo: 'text',
-            placeholder: 'CPF, CNPJ, Celular, E-mail ou Chave Aleatória',
+            placeholder: 'Ex: (11) 99999-9999, CPF, CNPJ ou E-mail',
+            ajuda: 'Celular pode ser informado com DDD normal. O sistema formata para +55.',
             obrigatorio: false,
           },
           {
@@ -270,7 +271,8 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
             label: 'Chave PIX',
             tipo: 'text',
             valor: membro.chave_pix || '',
-            placeholder: 'CPF, CNPJ, Celular, E-mail ou Chave Aleatória',
+            placeholder: 'Ex: (11) 99999-9999, CPF, CNPJ ou E-mail',
+            ajuda: 'Celular pode ser informado com DDD normal. O sistema formata para +55.',
             obrigatorio: false,
           },
           {

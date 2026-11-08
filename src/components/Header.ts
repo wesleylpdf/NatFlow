@@ -72,7 +72,8 @@ export function abrirModalMeuPerfil(aoSalvar?: () => void): void {
             tipo: 'text',
             valor: perfil.chave_pix || '',
             obrigatorio: false,
-            placeholder: 'CPF, CNPJ, Celular, E-mail ou Chave Aleatória',
+            placeholder: 'Ex: (11) 99999-9999, CPF, CNPJ ou E-mail',
+            ajuda: 'Celular pode ser digitado com DDD como (11) 99999-9999. O sistema padroniza automaticamente com +55.',
           },
           {
             nome: 'beneficiario_pix',

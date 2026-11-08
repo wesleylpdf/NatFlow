@@ -17,6 +17,7 @@ export interface CampoModal {
   placeholder?: string
   obrigatorio?: boolean
   opcoes?: OpcaoSelect[]
+  ajuda?: string
 }
 
 interface FormModalOpcoes {
@@ -74,6 +75,7 @@ export function abrirFormModal(opcoes: FormModalOpcoes): void {
           <input id="modal-${c.nome}" name="${c.nome}" ${tipoInput(c.tipo)}
             class="${cls.input}" value="${escaparHTML(c.valor ?? '')}"
             placeholder="${escaparHTML(c.placeholder ?? '')}" ${c.obrigatorio ? 'required' : ''} autocomplete="off">
+          ${c.ajuda ? `<p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">${escaparHTML(c.ajuda)}</p>` : ''}
         </div>`
     })
     .join('')

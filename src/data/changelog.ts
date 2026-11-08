@@ -10,6 +10,18 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.1',
+    data: '08/11/2026',
+    titulo: 'Correção e Compatibilidade Total do PIX Copia e Cola para Chave Celular',
+    destaque: true,
+    alterado: [
+      'Normalização automática de chaves PIX de telefone celular para o padrão internacional E.164 (+55 DDD número) exigido pelo Banco Central do Brasil (BACEN / DICT).',
+      'Compatibilidade total ao colar o código PIX Copia e Cola em qualquer aplicativo bancário (Nubank, Itaú, Bradesco, Santander, Inter, Mercado Pago, etc.), eliminando erro de código inválido.',
+      'Suporte inteligente no cadastro de chave PIX aceitando números digitados com ou sem máscara como (11) 99999-9999, 11999999999 ou +5511999999999.',
+      'Dicas e orientações no modal de Meu Perfil e Gerenciamento de Equipe.'
+    ]
+  },
+  {
     versao: 'v1.3.0',
     data: '08/11/2026',
     titulo: 'Nova Aba Resumo Financeiro, Cards 100% Clicáveis e Layout Espaçoso',
