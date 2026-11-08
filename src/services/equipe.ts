@@ -23,6 +23,26 @@ function salvarBeneficiarioLocal(email: string, valor: string | null): void {
   }
 }
 
+export function obterChavePixLocal(email: string): string | null {
+  try {
+    return localStorage.getItem(`natflow_chave_pix_${email.toLowerCase()}`) || null
+  } catch {
+    return null
+  }
+}
+
+export function salvarChavePixLocal(email: string, valor: string | null): void {
+  try {
+    if (valor) {
+      localStorage.setItem(`natflow_chave_pix_${email.toLowerCase()}`, valor)
+    } else {
+      localStorage.removeItem(`natflow_chave_pix_${email.toLowerCase()}`)
+    }
+  } catch {
+    // storage opcional
+  }
+}
+
 export function salvarNomeMembroLocal(email: string, nome: string): void {
   try {
     if (typeof localStorage !== 'undefined' && email && nome) {
@@ -130,6 +150,16 @@ export async function obterPerfilAtual(forcarAtualizacao = false): Promise<Autor
   if (!autorizado.beneficiario_pix) {
     const local = obterBeneficiarioLocal(emailLimpo)
     if (local) autorizado.beneficiario_pix = local
+  } else {
+    salvarBeneficiarioLocal(emailLimpo, autorizado.beneficiario_pix)
+  }
+
+  // Fallback para chave_pix do localStorage para máxima resiliência offline/cache
+  if (!autorizado.chave_pix) {
+    const localChave = obterChavePixLocal(emailLimpo)
+    if (localChave) autorizado.chave_pix = localChave
+  } else {
+    salvarChavePixLocal(emailLimpo, autorizado.chave_pix)
   }
 
   perfilCache = autorizado
@@ -155,7 +185,11 @@ export async function atualizarMeuPerfil(dados: {
   const emailLimpo = user.email.toLowerCase()
   const payload: Record<string, unknown> = {}
   if (dados.nome !== undefined) payload.nome = dados.nome.trim()
-  if (dados.chave_pix !== undefined) payload.chave_pix = dados.chave_pix?.trim() || null
+  if (dados.chave_pix !== undefined) {
+    const chv = dados.chave_pix?.trim() || null
+    payload.chave_pix = chv
+    salvarChavePixLocal(emailLimpo, chv)
+  }
 
   if (dados.beneficiario_pix !== undefined) {
     const ben = dados.beneficiario_pix?.trim() || null

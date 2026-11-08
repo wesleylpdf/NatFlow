@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.2',
+    data: '08/11/2026',
+    titulo: 'Resiliência e Persistência da Chave PIX e Cópia Automática',
+    destaque: true,
+    alterado: [
+      'Persistência local segura da chave PIX no dispositivo para evitar perda de dados entre recargas ou falhas de rede.',
+      'Forçamento de atualização do perfil antes do disparo de mensagens no WhatsApp, garantindo que o código Copia e Cola e a chave PIX sempre acompanhem o lembrete de cobrança.',
+      'Cópia automática do código PIX Copia e Cola para a área de transferência ao abrir o WhatsApp.'
+    ]
+  },
+  {
     versao: 'v1.3.1',
     data: '08/11/2026',
     titulo: 'Correção e Compatibilidade Total do PIX Copia e Cola para Chave Celular',

@@ -422,7 +422,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
         if (cliente.saldo_devedor > 0) {
           try {
-            const perfil = await obterPerfilAtual()
+            const perfil = await obterPerfilAtual(true)
             const opcoesPix = {
               chavePix: perfil?.chave_pix,
               nomeProfissional: perfil?.beneficiario_pix || perfil?.nome,
