@@ -122,7 +122,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         listarClientesComSaldo(),
         carregarMapaMembros(),
       ])
-      renderChips()
       renderLista()
       await atualizarResumoFinanceiro()
       const contador = container.querySelector('#contador-clientes')
@@ -158,14 +157,21 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           <span id="seta-clientes" class="text-xs text-slate-400 group-hover:text-emerald-500 transition-transform">▲</span>
         </button>
         <div id="corpo-clientes" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 animate-fade-in">
-          <!-- Campo de Busca com Botão de Limpar -->
-          <div class="relative mb-2.5">
-            <input id="busca-cliente" type="search" class="${cls.input} text-xs py-2 pr-7" placeholder="🔍 Buscar cliente por nome ou telefone">
-            <button id="btn-limpar-busca" type="button" class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-xs rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 font-bold" title="Limpar busca">✕</button>
+          <!-- Busca e Filtro Selecionável Compacto -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
+            <div class="flex-1 min-w-0">
+              <input id="busca-cliente" type="search" class="${cls.input} text-xs py-2" placeholder="🔍 Buscar cliente por nome ou telefone">
+            </div>
+            <div class="w-full sm:w-64 shrink-0">
+              <select id="select-filtro-status" class="${cls.input} text-xs font-bold py-2 bg-slate-50 dark:bg-slate-800 cursor-pointer" aria-label="Filtrar clientes por status">
+                <option value="todos">⚪ Todos os Clientes</option>
+                <option value="promessas">⏰ Promessas Hoje / Vencidas</option>
+                <option value="devedores">🔴 Clientes com Débito</option>
+                <option value="antigos">⚠️ Débitos +30 Dias</option>
+                <option value="em_dia">🟢 Clientes em Dia</option>
+              </select>
+            </div>
           </div>
-
-          <!-- Pílulas / Chips de Filtro Deslizantes para Celulares -->
-          <div id="chips-filtro-status" class="flex items-center gap-1.5 overflow-x-auto pb-1 mb-3 scrollbar-none -mx-1 px-1 touch-pan-x"></div>
 
           <ul id="lista-clientes" class="space-y-2"></ul>
         </div>
@@ -200,56 +206,12 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     setaClientes.textContent = fechado ? '▼' : '▲'
   })
 
-  const chipsContainer = container.querySelector<HTMLElement>('#chips-filtro-status')!
-  const btnLimparBusca = container.querySelector<HTMLButtonElement>('#btn-limpar-busca')!
-
-  function renderChips(): void {
-    if (!chipsContainer) return
-    const qtdTodos = clientes.length
-    const qtdPromessas = clientes.filter(c => {
-      const dataProm = c.proximo_acerto_data
-      if (c.saldo_devedor <= 0 || !dataProm) return false
-      const st = obterStatusPromessa(dataProm)?.status
-      return st === 'vence_hoje' || st === 'vencida'
-    }).length
-    const qtdDevedores = clientes.filter(c => c.saldo_devedor > 0).length
-    const qtdAntigos = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
-    const qtdEmDia = clientes.filter(c => c.saldo_devedor <= 0).length
-
-    const itens: { id: FiltroStatus; label: string; count: number }[] = [
-      { id: 'todos', label: '⚪ Todos', count: qtdTodos },
-      { id: 'promessas', label: '⏰ Vencem Hoje', count: qtdPromessas },
-      { id: 'devedores', label: '🔴 Devedores', count: qtdDevedores },
-      { id: 'antigos', label: '⚠️ +30d', count: qtdAntigos },
-      { id: 'em_dia', label: '🟢 Em Dia', count: qtdEmDia },
-    ]
-
-    chipsContainer.innerHTML = itens
-      .map(item => {
-        const ativo = filtroStatus === item.id
-        return `
-          <button type="button" data-filtro-chip="${item.id}" class="text-xs px-3 py-1.5 rounded-xl transition whitespace-nowrap active:scale-95 shrink-0 flex items-center gap-1.5 cursor-pointer ${
-            ativo
-              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-black shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold'
-          }">
-            <span>${item.label}</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded-full ${
-              ativo
-                ? 'bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-950 font-black'
-                : 'bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold'
-            }">${item.count}</span>
-          </button>
-        `
-      })
-      .join('')
-
-    chipsContainer.querySelectorAll<HTMLButtonElement>('[data-filtro-chip]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        filtroStatus = btn.dataset.filtroChip as FiltroStatus
-        renderChips()
-        renderLista()
-      })
+  // Seletor compacto de filtro de status
+  const selectFiltro = container.querySelector<HTMLSelectElement>('#select-filtro-status')
+  if (selectFiltro) {
+    selectFiltro.addEventListener('change', () => {
+      filtroStatus = selectFiltro.value as FiltroStatus
+      renderLista()
     })
   }
 
@@ -581,41 +543,50 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         const temRodape = Boolean(subtituloAcerto || avisoAtraso)
 
         return `
-        <li class="group flex flex-col ${estiloCard} rounded-2xl p-2.5 sm:px-3 sm:py-2.5 transition">
-          <div class="flex items-center justify-between gap-2">
-            <a href="#/cliente/${c.id}" class="flex-1 min-w-0 flex items-center gap-2.5 sm:gap-3">
+        <li class="group flex flex-col ${estiloCard} rounded-2xl p-3 transition space-y-2">
+          <!-- Linha 1: Link principal com Nome, Telefone e Badge de Status/Saldo -->
+          <a href="#/cliente/${c.id}" class="flex items-center justify-between gap-2.5">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
               <div class="w-9 h-9 rounded-full ${estiloAvatar} flex items-center justify-center font-black text-sm shrink-0">
                 ${escaparHTML(c.nome.trim().charAt(0).toUpperCase())}
               </div>
               <div class="min-w-0 flex-1">
                 <p class="font-bold text-sm text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</p>
-                <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
-                  <span>${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>
-                  <span>•</span>
-                  <span class="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c, mapaMembros)}</span>
-                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</p>
               </div>
-              <div class="shrink-0">
-                ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
-              </div>
-            </a>
-            <div class="flex items-center gap-1 shrink-0">
-              ${
-                c.telefone
-                  ? `<button type="button" data-whats-cliente="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Abrir WhatsApp">
-                      <span class="text-sm">💬</span>
-                    </button>`
-                  : ''
-              }
-              <button data-editar="${c.id}" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
-              <button data-excluir="${c.id}" class="${cls.btnIcone}" title="Excluir cliente">🗑️</button>
             </div>
+            <div class="shrink-0">
+              ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
+            </div>
+          </a>
+
+          <!-- Linha 2: Botões de Ação para o polegar (32x32px): WhatsApp verde, Editar índigo e Excluir vermelho -->
+          <div class="flex items-center gap-2 pt-0.5">
+            ${
+              c.telefone
+                ? `<button type="button" data-whats-cliente="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Abrir WhatsApp">
+                    <span class="text-sm">💬</span>
+                  </button>`
+                : ''
+            }
+            <button type="button" data-editar="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 active:scale-95 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 transition shadow-xs cursor-pointer" title="Editar cliente">
+              <span class="text-sm">✏️</span>
+            </button>
+            <button type="button" data-excluir="${c.id}" class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 active:scale-95 text-rose-700 dark:text-rose-300 border border-rose-500/30 transition shadow-xs cursor-pointer" title="Excluir cliente">
+              <span class="text-sm">🗑️</span>
+            </button>
           </div>
 
+          <!-- Linha 3: Autoria do cadastro / edição -->
+          <div class="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">
+            ${formatarAutoriaResumida(c, mapaMembros)}
+          </div>
+
+          <!-- Linha 4: Final com informações dos acertos -->
           ${
             temRodape
               ? `
-            <a href="#/cliente/${c.id}" class="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-1 text-left">
+            <a href="#/cliente/${c.id}" class="mt-1 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-1 text-left">
               ${subtituloAcerto}
               ${avisoAtraso}
             </a>
@@ -658,16 +629,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
   buscaInput.addEventListener('input', () => {
     busca = buscaInput.value
-    if (btnLimparBusca) btnLimparBusca.classList.toggle('hidden', !busca)
     renderLista()
-  })
-
-  btnLimparBusca?.addEventListener('click', () => {
-    buscaInput.value = ''
-    busca = ''
-    btnLimparBusca.classList.add('hidden')
-    renderLista()
-    buscaInput.focus()
   })
 
   listaEl.addEventListener('click', async e => {
@@ -726,7 +688,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   })
 
   renderResumo()
-  renderChips()
   renderLista()
 }
 

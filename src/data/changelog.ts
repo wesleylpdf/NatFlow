@@ -10,10 +10,22 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.49',
+    data: '08/11/2026',
+    titulo: 'Reorganização Espaçosa dos Cards de Clientes para Mobile',
+    destaque: true,
+    alterado: [
+      'Novo layout em linhas dedicadas nos cards de clientes: Linha 1 com nome, telefone e badge de saldo sem espremer o texto.',
+      'Linha 2 com botões de ação amplos (32x32px ideais para o polegar): WhatsApp verde (💬), Editar índigo (✏️) e Excluir vermelho (🗑️).',
+      'Linha 3 com autoria (Por XXX e Edit Por XXX) e Linha 4 com as informações de acertos combinados e atrasos.',
+      'Retorno do seletor compacto clássico de filtros no topo, eliminando a barra de rolagem lateral.'
+    ]
+  },
+  {
     versao: 'v1.2.48',
     data: '08/11/2026',
-    titulo: 'UX Mobile: Atalho Direto de WhatsApp nos Cards e Pílulas de Filtros Deslizantes',
-    destaque: true,
+    titulo: 'UX Mobile: Atalho Direto de WhatsApp nos Cards',
+    destaque: false,
     adicionado: [
       'Atalho direto de WhatsApp (💬) nos cards de clientes na tela inicial: 1 toque para enviar cobrança com PIX Copia e Cola (ou abrir conversa com cliente em dia).',
       'Pílulas de filtros deslizantes (chips horizontais) para alternar rapidamente entre Todos, Vencem Hoje, Devedores, +30d e Em Dia com o polegar.',
