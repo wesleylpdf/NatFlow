@@ -10,10 +10,19 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.27',
+    data: '08/11/2026',
+    titulo: 'Layout Otimizado do Cronograma de Acertos',
+    destaque: true,
+    alterado: [
+      'Título "Cronograma de Acertos" posicionado no topo, acima dos botões de ação.',
+      'Botões "Parcelar Saldo" e "Novo Acerto" alinhados lado a lado na mesma linha sem quebra de linha.'
+    ]
+  },
+  {
     versao: 'v1.2.26',
     data: '08/11/2026',
     titulo: 'Histórico de Atualizações Interativo no Cabeçalho',
-    destaque: true,
     adicionado: [
       'Versão no topo agora é um botão clicável que exibe a central de novidades e histórico de versões do NatFlow.',
       'Modal moderno com divisão clara entre Novidades (✨), Alterações/Melhorias (🔄) e Itens Removidos (🗑️).'

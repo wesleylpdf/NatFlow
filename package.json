@@ -1,6 +1,6 @@
 {
   "name": "natflow",
-  "version": "1.2.26",
+  "version": "1.2.27",
   "private": true,
   "description": "NatFlow - controle financeiro de clientes de produtos de beleza e saúde",
   "type": "module",

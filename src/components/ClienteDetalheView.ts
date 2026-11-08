@@ -284,6 +284,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
       <!-- Cronograma de Acertos -->
       <div class="mt-3.5 pt-3 border-t border-slate-200 dark:border-white/10 space-y-2.5">
+        <!-- Título acima -->
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
             <span class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200">🗓️ Cronograma de Acertos</span>
@@ -295,18 +296,20 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                 : ''
             }
           </div>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            ${
-              saldoDevedor > 0
-                ? `<button id="btn-parcelar-saldo" type="button" class="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 transition active:scale-95" title="Dividir saldo devedor em 2x, 3x ou mais">
-                    ➗ Parcelar Saldo
-                  </button>`
-                : ''
-            }
-            <button id="btn-novo-acerto" type="button" class="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95" title="Adicionar nova data e valor combinado">
-              ➕ Novo Acerto
-            </button>
-          </div>
+        </div>
+
+        <!-- Botões na mesma linha sem quebrar -->
+        <div class="flex items-center gap-2">
+          ${
+            saldoDevedor > 0
+              ? `<button id="btn-parcelar-saldo" type="button" class="flex-1 inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-extrabold px-2.5 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 transition active:scale-95 whitespace-nowrap" title="Dividir saldo devedor em 2x, 3x ou mais">
+                  ➗ Parcelar Saldo
+                </button>`
+              : ''
+          }
+          <button id="btn-novo-acerto" type="button" class="flex-1 inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-extrabold px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 whitespace-nowrap" title="Adicionar nova data e valor combinado">
+            ➕ Novo Acerto
+          </button>
         </div>
 
         ${
