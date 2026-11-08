@@ -33,24 +33,24 @@ function badgeSaldo(saldo: number, diasAtraso: number = 0): string {
   if (saldo > 0) {
     if (diasAtraso >= 60) {
       return `
-        <span class="text-xs font-black px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 whitespace-nowrap inline-flex items-center gap-1.5" title="Débito crítico pendente há mais de 60 dias sem pagamentos">
-          <span class="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+        <span class="text-xs font-black px-2.5 py-1 rounded-full bg-rose-500 text-white shadow-sm whitespace-nowrap inline-flex items-center gap-1.5" title="Débito crítico pendente há mais de 60 dias sem pagamentos">
+          <span class="w-1.5 h-1.5 rounded-full bg-white shrink-0"></span>
           🚨 Deve ${formatarMoeda(saldo)} • +60d
         </span>`
     }
     if (diasAtraso >= 30) {
       return `
-        <span class="text-xs font-black px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap inline-flex items-center gap-1.5" title="Débito pendente há mais de 30 dias sem pagamentos">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+        <span class="text-xs font-black px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 shadow-sm whitespace-nowrap inline-flex items-center gap-1.5" title="Débito pendente há mais de 30 dias sem pagamentos">
+          <span class="w-1.5 h-1.5 rounded-full bg-slate-950 shrink-0"></span>
           ⏳ Deve ${formatarMoeda(saldo)} • ${diasAtraso}d
         </span>`
     }
-    return `<span class="text-xs font-black px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-300 border border-rose-500/20 whitespace-nowrap">Deve ${formatarMoeda(saldo)}</span>`
+    return `<span class="text-xs font-black px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 whitespace-nowrap">Deve ${formatarMoeda(saldo)}</span>`
   }
   if (saldo < 0) {
-    return `<span class="text-xs font-black px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/20 whitespace-nowrap">Crédito ${formatarMoeda(-saldo)}</span>`
+    return `<span class="text-xs font-black px-2.5 py-1 rounded-full bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/40 whitespace-nowrap font-black">Crédito ${formatarMoeda(-saldo)}</span>`
   }
-  return `<span class="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 whitespace-nowrap">Em dia</span>`
+  return `<span class="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-600 text-white shadow-sm whitespace-nowrap">Em dia</span>`
 }
 
 /**
@@ -464,9 +464,10 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         let estiloAvatar = ''
 
         if (c.saldo_devedor <= 0) {
-          // 1. Cliente Em Dia (Verde Esmeralda suave sem rodapé de acerto)
-          estiloCard = 'border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-500/10 hover:bg-emerald-500/15 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50'
-          estiloAvatar = 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
+          // 1. Cliente Em Dia (Verde Esmeralda destacado, sem rodapé de acerto)
+          estiloCard =
+            'border-2 border-emerald-400 bg-emerald-50 hover:bg-emerald-100 dark:border-emerald-600 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 shadow-sm'
+          estiloAvatar = 'bg-emerald-600 text-white font-black'
         } else if (infoPromessa && dataPromessa) {
           // 2. Cliente Devedor COM acerto cadastrado (Vermelho, Laranja Pulsante ou Azul)
           const dataFormatada = formatarData(dataPromessa).slice(0, 5) // DD/MM
@@ -477,14 +478,17 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
               : ''
 
           if (infoPromessa.status === 'vence_hoje') {
-            estiloCard = 'border-amber-400 dark:border-amber-500 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 ring-2 ring-amber-400/50 animate-pulse'
+            estiloCard =
+              'border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 dark:border-amber-500 dark:bg-amber-950/50 dark:hover:bg-amber-950/70 ring-2 ring-amber-400/60 animate-pulse shadow-sm'
             estiloAvatar = 'bg-amber-500 text-slate-950 font-black'
           } else if (infoPromessa.status === 'vencida') {
-            estiloCard = 'border-rose-400 dark:border-rose-500 bg-rose-500/15 hover:bg-rose-500/25 dark:bg-rose-950/40 dark:hover:bg-rose-950/60 ring-2 ring-rose-400/50'
-            estiloAvatar = 'bg-rose-500 text-white font-black'
+            estiloCard =
+              'border-2 border-rose-500 bg-rose-50 hover:bg-rose-100 dark:border-rose-500 dark:bg-rose-950/50 dark:hover:bg-rose-950/70 ring-2 ring-rose-400/60 shadow-sm'
+            estiloAvatar = 'bg-rose-600 text-white font-black'
           } else {
-            estiloCard = 'border-sky-400 dark:border-sky-500 bg-sky-500/15 hover:bg-sky-500/25 dark:bg-sky-950/40 dark:hover:bg-sky-950/60 ring-1 ring-sky-400/50'
-            estiloAvatar = 'bg-sky-500 text-white font-black'
+            estiloCard =
+              'border-2 border-sky-400 bg-sky-50 hover:bg-sky-100 dark:border-sky-500 dark:bg-sky-950/50 dark:hover:bg-sky-950/70 ring-1 ring-sky-400/50 shadow-sm'
+            estiloAvatar = 'bg-sky-600 text-white font-black'
           }
 
           subtituloAcerto = `
@@ -501,18 +505,21 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         } else {
           // 3. Cliente Devedor SEM acerto cadastrado (Padrão Diferenciado com borda tracejada e rodapé)
           if (dias >= 60) {
-            estiloCard = 'border-dashed border-rose-400/80 dark:border-rose-500/60 bg-rose-50/20 hover:bg-rose-50/40'
-            estiloAvatar = 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+            estiloCard =
+              'border-2 border-dashed border-rose-400 bg-rose-50/40 hover:bg-rose-50/70 dark:border-rose-500/70 dark:bg-rose-950/30 shadow-sm'
+            estiloAvatar = 'bg-rose-500/20 text-rose-700 dark:text-rose-300 font-black'
           } else if (dias >= 30) {
-            estiloCard = 'border-dashed border-amber-400/80 dark:border-amber-500/60 bg-amber-50/20 hover:bg-amber-50/40'
-            estiloAvatar = 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+            estiloCard =
+              'border-2 border-dashed border-amber-400 bg-amber-50/40 hover:bg-amber-50/70 dark:border-amber-500/70 dark:bg-amber-950/30 shadow-sm'
+            estiloAvatar = 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-black'
           } else {
-            estiloCard = 'border-dashed border-slate-300 dark:border-slate-600 bg-slate-100/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/70'
-            estiloAvatar = 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+            estiloCard =
+              'border-2 border-dashed border-slate-400 bg-slate-50 hover:bg-slate-100 dark:border-slate-500 dark:bg-slate-800/50 dark:hover:bg-slate-800/80 shadow-sm'
+            estiloAvatar = 'bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black'
           }
 
           subtituloAcerto = `
-          <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
             <span class="text-sm shrink-0">⚠️</span>
             <span class="truncate">Nenhum acerto cadastrado</span>
           </div>`
