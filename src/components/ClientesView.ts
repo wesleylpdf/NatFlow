@@ -457,16 +457,35 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
         const dias = c.dias_atraso || 0
         const temAtraso = c.saldo_devedor > 0 && dias >= 30
         const dataPromessa = c.data_promessa || c.proximo_acerto_data
-        const infoPromessa = c.saldo_devedor > 0 ? obterStatusPromessa(dataPromessa) : null
+        const infoPromessa = c.saldo_devedor > 0 && dataPromessa ? obterStatusPromessa(dataPromessa) : null
 
         let subtituloAcerto = ''
-        if (c.saldo_devedor > 0 && infoPromessa && dataPromessa) {
+        let estiloCard = ''
+        let estiloAvatar = ''
+
+        if (c.saldo_devedor <= 0) {
+          // 1. Cliente Em Dia (Verde Esmeralda suave sem rodapé de acerto)
+          estiloCard = 'border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-500/10 hover:bg-emerald-500/15 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50'
+          estiloAvatar = 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
+        } else if (infoPromessa && dataPromessa) {
+          // 2. Cliente Devedor COM acerto cadastrado (Vermelho, Laranja Pulsante ou Azul)
           const dataFormatada = formatarData(dataPromessa).slice(0, 5) // DD/MM
           const valorFormatado = c.proximo_acerto_valor ? ` (${formatarMoeda(c.proximo_acerto_valor)})` : ''
           const qtdRestante =
             c.qtd_acertos_pendentes && c.qtd_acertos_pendentes > 1
               ? ` • ${c.qtd_acertos_pendentes} restantes`
               : ''
+
+          if (infoPromessa.status === 'vence_hoje') {
+            estiloCard = 'border-amber-400 dark:border-amber-500 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 ring-2 ring-amber-400/50 animate-pulse'
+            estiloAvatar = 'bg-amber-500 text-slate-950 font-black'
+          } else if (infoPromessa.status === 'vencida') {
+            estiloCard = 'border-rose-400 dark:border-rose-500 bg-rose-500/15 hover:bg-rose-500/25 dark:bg-rose-950/40 dark:hover:bg-rose-950/60 ring-2 ring-rose-400/50'
+            estiloAvatar = 'bg-rose-500 text-white font-black'
+          } else {
+            estiloCard = 'border-sky-400 dark:border-sky-500 bg-sky-500/15 hover:bg-sky-500/25 dark:bg-sky-950/40 dark:hover:bg-sky-950/60 ring-1 ring-sky-400/50'
+            estiloAvatar = 'bg-sky-500 text-white font-black'
+          }
 
           subtituloAcerto = `
           <div class="flex items-center gap-1.5 text-xs font-black ${
@@ -478,6 +497,24 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           }">
             <span class="text-sm shrink-0">${infoPromessa.status === 'vencida' ? '🚨' : infoPromessa.status === 'vence_hoje' ? '⏰' : '🗓️'}</span>
             <span class="truncate">Próximo acerto: ${dataFormatada}${valorFormatado}${qtdRestante}</span>
+          </div>`
+        } else {
+          // 3. Cliente Devedor SEM acerto cadastrado (Padrão Diferenciado com borda tracejada e rodapé)
+          if (dias >= 60) {
+            estiloCard = 'border-dashed border-rose-400/80 dark:border-rose-500/60 bg-rose-50/20 hover:bg-rose-50/40'
+            estiloAvatar = 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+          } else if (dias >= 30) {
+            estiloCard = 'border-dashed border-amber-400/80 dark:border-amber-500/60 bg-amber-50/20 hover:bg-amber-50/40'
+            estiloAvatar = 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+          } else {
+            estiloCard = 'border-dashed border-slate-300 dark:border-slate-600 bg-slate-100/70 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/70'
+            estiloAvatar = 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+          }
+
+          subtituloAcerto = `
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <span class="text-sm shrink-0">⚠️</span>
+            <span class="truncate">Nenhum acerto cadastrado</span>
           </div>`
         }
 
@@ -494,32 +531,6 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
             }</span>
           </div>`
           : ''
-
-        // Cores de todo o card conforme status de promessa ou envelhecimento do débito
-        let estiloCard = 'border-slate-200 dark:border-slate-700/80 bg-slate-50 hover:bg-emerald-50/60 dark:bg-slate-800/60 dark:hover:bg-slate-800'
-        let estiloAvatar = 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-
-        if (c.saldo_devedor > 0 && infoPromessa) {
-          if (infoPromessa.status === 'vence_hoje') {
-            // Promessa Vence Hoje! -> card fica amarelo/laranja pulsante
-            estiloCard = 'border-amber-400 dark:border-amber-500 bg-amber-500/15 hover:bg-amber-500/25 dark:bg-amber-950/40 dark:hover:bg-amber-950/60 ring-2 ring-amber-400/50 animate-pulse'
-            estiloAvatar = 'bg-amber-500 text-slate-950 font-black'
-          } else if (infoPromessa.status === 'vencida') {
-            // Promessa Vencida -> card fica na cor alerta vermelho
-            estiloCard = 'border-rose-400 dark:border-rose-500 bg-rose-500/15 hover:bg-rose-500/25 dark:bg-rose-950/40 dark:hover:bg-rose-950/60 ring-2 ring-rose-400/50'
-            estiloAvatar = 'bg-rose-500 text-white font-black'
-          } else if (infoPromessa.status === 'a_vencer') {
-            // Acerto Futuro -> card fica na cor indicador azul
-            estiloCard = 'border-sky-400 dark:border-sky-500 bg-sky-500/15 hover:bg-sky-500/25 dark:bg-sky-950/40 dark:hover:bg-sky-950/60 ring-1 ring-sky-400/50'
-            estiloAvatar = 'bg-sky-500 text-white font-black'
-          }
-        } else if (dias >= 60) {
-          estiloCard = 'border-rose-400/80 dark:border-rose-500/50 bg-rose-50/20 hover:bg-rose-50/40'
-          estiloAvatar = 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
-        } else if (dias >= 30) {
-          estiloCard = 'border-amber-400/80 dark:border-amber-500/50 bg-amber-50/20 hover:bg-amber-50/40'
-          estiloAvatar = 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-        }
 
         const temRodape = Boolean(subtituloAcerto || avisoAtraso)
 
