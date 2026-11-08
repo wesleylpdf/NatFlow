@@ -469,25 +469,25 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
               : ''
 
           subtituloAcerto = `
-          <div class="mt-1 flex items-center gap-1.5 text-[11px] font-black ${
+          <div class="flex items-center gap-1.5 text-xs font-black ${
             infoPromessa.status === 'vencida'
               ? 'text-rose-700 dark:text-rose-300'
               : infoPromessa.status === 'vence_hoje'
                 ? 'text-amber-800 dark:text-amber-200'
                 : 'text-sky-700 dark:text-sky-300'
           }">
-            <span>${infoPromessa.status === 'vencida' ? '🚨' : infoPromessa.status === 'vence_hoje' ? '⏰' : '🗓️'}</span>
-            <span>Próximo acerto: ${dataFormatada}${valorFormatado}${qtdRestante}</span>
+            <span class="text-sm shrink-0">${infoPromessa.status === 'vencida' ? '🚨' : infoPromessa.status === 'vence_hoje' ? '⏰' : '🗓️'}</span>
+            <span class="truncate">Próximo acerto: ${dataFormatada}${valorFormatado}${qtdRestante}</span>
           </div>`
         }
 
         const avisoAtraso = temAtraso
           ? `
-          <div class="mt-1 flex items-center gap-1.5 text-[11px] font-bold ${
+          <div class="flex items-center gap-1.5 text-[11px] font-bold ${
             dias >= 60 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
           }">
-            <span>${dias >= 60 ? '🚨' : '⏳'}</span>
-            <span>Pendente há ${dias} dias ${
+            <span class="shrink-0">${dias >= 60 ? '🚨' : '⏳'}</span>
+            <span class="truncate">Pendente há ${dias} dias ${
               c.ultimo_pagamento
                 ? `(último pgto ${formatarData(c.ultimo_pagamento)})`
                 : '(sem nenhum pagamento registrado)'
@@ -521,26 +521,43 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
           estiloAvatar = 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
         }
 
+        const temRodape = Boolean(subtituloAcerto || avisoAtraso)
+
         return `
-        <li class="group flex items-center gap-2 ${estiloCard} rounded-2xl pl-3 pr-1.5 py-2 transition">
-          <a href="#/cliente/${c.id}" class="flex-1 min-w-0 flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full ${estiloAvatar} flex items-center justify-center font-black text-sm shrink-0">
-              ${escaparHTML(c.nome.trim().charAt(0).toUpperCase())}
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="font-bold text-sm text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</p>
-              <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 truncate">
-                <span>${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>
-                <span>•</span>
-                <span class="text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c, mapaMembros)}</span>
+        <li class="group flex flex-col ${estiloCard} rounded-2xl p-2.5 sm:px-3 sm:py-2.5 transition">
+          <div class="flex items-center justify-between gap-2">
+            <a href="#/cliente/${c.id}" class="flex-1 min-w-0 flex items-center gap-2.5 sm:gap-3">
+              <div class="w-9 h-9 rounded-full ${estiloAvatar} flex items-center justify-center font-black text-sm shrink-0">
+                ${escaparHTML(c.nome.trim().charAt(0).toUpperCase())}
               </div>
+              <div class="min-w-0 flex-1">
+                <p class="font-bold text-sm text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</p>
+                <div class="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
+                  <span>${c.telefone ? escaparHTML(c.telefone) : 'Sem telefone'}</span>
+                  <span>•</span>
+                  <span class="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c, mapaMembros)}</span>
+                </div>
+              </div>
+              <div class="shrink-0">
+                ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
+              </div>
+            </a>
+            <div class="flex items-center gap-0.5 shrink-0">
+              <button data-editar="${c.id}" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
+              <button data-excluir="${c.id}" class="${cls.btnIcone}" title="Excluir cliente">🗑️</button>
+            </div>
+          </div>
+
+          ${
+            temRodape
+              ? `
+            <a href="#/cliente/${c.id}" class="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-1 text-left">
               ${subtituloAcerto}
               ${avisoAtraso}
-            </div>
-            ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}
-          </a>
-          <button data-editar="${c.id}" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
-          <button data-excluir="${c.id}" class="${cls.btnIcone}" title="Excluir cliente">🗑️</button>
+            </a>
+          `
+              : ''
+          }
         </li>`
       })
       .join('')
