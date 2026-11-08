@@ -1,4 +1,4 @@
-import { abrirFormModal, confirmar } from '@/components/Modal'
+import { abrirFormModal, confirmar, criarOverlay } from '@/components/Modal'
 import { abrirEdicaoCliente } from '@/components/ClientesView'
 import { definirDataPromessa, listarClientes } from '@/services/clientes'
 import { atualizarCompra, criarCompra, excluirCompra, listarCompras } from '@/services/compras'
@@ -8,10 +8,20 @@ import {
   excluirPagamento,
   listarPagamentos,
 } from '@/services/pagamentos'
+import {
+  listarAcertos,
+  criarAcerto,
+  criarMultiplosAcertos,
+  atualizarAcerto,
+  excluirAcerto,
+  alternarStatusAcerto,
+  abaterAcertosComPagamento,
+} from '@/services/acertos'
 import { carregarMapaMembros, obterPerfilAtual } from '@/services/equipe'
 import { obterSugestoesCatalogo } from '@/services/catalogo'
-import type { Cliente, Compra, Pagamento, Autorizado } from '@/types'
+import type { Cliente, Compra, Pagamento, Autorizado, Acerto } from '@/types'
 import {
+  calcularDataFutura,
   calcularDiasAtraso,
   escaparHTML,
   extrairPrimeiroNome,
@@ -85,14 +95,16 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
   let clientes: Cliente[]
   let compras: Compra[]
   let pagamentos: Pagamento[]
+  let acertos: Acerto[] = []
   let perfil: Autorizado | null = null
   let mapaMembros = new Map<string, string>()
 
   try {
-    ;[clientes, compras, pagamentos, perfil, mapaMembros] = await Promise.all([
+    ;[clientes, compras, pagamentos, acertos, perfil, mapaMembros] = await Promise.all([
       listarClientes(),
       listarCompras(clienteId),
       listarPagamentos(clienteId),
+      listarAcertos(clienteId),
       obterPerfilAtual(),
       carregarMapaMembros(),
     ])
@@ -168,6 +180,15 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     const primeiraComp = compras.length > 0 ? compras[compras.length - 1] : null
     const dataBase = ultimoPag ? ultimoPag.data : (primeiraComp ? primeiraComp.data : c.created_at.slice(0, 10))
     const diasAtraso = saldoDevedor > 0 ? calcularDiasAtraso(dataBase) : 0
+
+    const acertosPendentes = acertos
+      .filter(a => a.status === 'pendente')
+      .sort((a, b) => a.data.localeCompare(b.data))
+    const acertosPagos = acertos
+      .filter(a => a.status === 'pago')
+      .sort((a, b) => b.data.localeCompare(a.data))
+    const totalAgendadoPendente = acertosPendentes.reduce((acc, a) => acc + a.valor, 0)
+    const totalAgendadoPago = acertosPagos.reduce((acc, a) => acc + a.valor, 0)
 
     let bannerAtraso = ''
     if (diasAtraso >= 30) {
@@ -261,40 +282,117 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         </div>
       </div>
 
-      ${
-        saldoDevedor > 0
-          ? (() => {
-              const infoPromessa = obterStatusPromessa(c.data_promessa)
-              if (infoPromessa) {
-                return `
-                  <div class="mt-3 flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                    <div class="flex items-center gap-2 min-w-0">
-                      <span class="text-xs font-black px-2.5 py-1 rounded-xl border ${infoPromessa.corBadge}">
-                        ${infoPromessa.rotulo}
-                      </span>
-                      <span class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline">Data de pagamento combinada</span>
+      <!-- Cronograma de Acertos -->
+      <div class="mt-3.5 pt-3 border-t border-slate-200 dark:border-white/10 space-y-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200">🗓️ Cronograma de Acertos</span>
+            ${
+              acertosPendentes.length > 0
+                ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                    ${acertosPendentes.length} pendente${acertosPendentes.length > 1 ? 's' : ''}
+                  </span>`
+                : ''
+            }
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${
+              saldoDevedor > 0
+                ? `<button id="btn-parcelar-saldo" type="button" class="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 transition active:scale-95" title="Dividir saldo devedor em 2x, 3x ou mais">
+                    ➗ Parcelar Saldo
+                  </button>`
+                : ''
+            }
+            <button id="btn-novo-acerto" type="button" class="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95" title="Adicionar nova data e valor combinado">
+              ➕ Novo Acerto
+            </button>
+          </div>
+        </div>
+
+        ${
+          acertos.length === 0
+            ? c.data_promessa
+              ? (() => {
+                  const infoPromessa = obterStatusPromessa(c.data_promessa)
+                  return `
+                    <div class="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                      <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-xs font-black px-2.5 py-1 rounded-xl border ${infoPromessa?.corBadge || ''}">
+                          ${infoPromessa?.rotulo || `🗓️ Acerto: ${formatarData(c.data_promessa)}`}
+                        </span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400">Data combinada</span>
+                      </div>
+                      <div class="flex items-center gap-1 shrink-0">
+                        <button id="btn-alterar-promessa-legada" class="${cls.btnIcone}" title="Alterar data combinada">✏️</button>
+                        <button id="btn-remover-promessa-legada" class="${cls.btnIcone}" title="Remover data combinada">✕</button>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-1 shrink-0">
-                      <button id="btn-alterar-promessa" class="${cls.btnIcone}" title="Alterar data combinada">✏️</button>
-                      <button id="btn-remover-promessa" class="${cls.btnIcone}" title="Remover data combinada">✕</button>
-                    </div>
-                  </div>
-                `
-              }
-              return `
-                <div class="mt-3 flex items-center justify-between gap-2 p-2 rounded-2xl bg-slate-50/70 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10">
-                  <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Nenhuma data de acerto combinada</span>
-                  <button id="btn-agendar-promessa" type="button" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-1">
-                    🗓️ Combinar Data de Pagamento
+                  `
+                })()
+              : `
+                <div class="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-50/70 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10">
+                  <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Nenhum acerto combinado no momento</span>
+                  <button id="btn-agendar-promessa-vazia" type="button" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-1">
+                    🗓️ Combinar Data
                   </button>
                 </div>
               `
-            })()
-          : ''
-      }
+            : `
+              <div class="space-y-1.5">
+                ${[...acertosPendentes, ...acertosPagos]
+                  .map(a => {
+                    const pago = a.status === 'pago'
+                    const infoPromessa = !pago ? obterStatusPromessa(a.data) : null
+                    const badgeStatus = pago
+                      ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">✅ Quitado</span>`
+                      : `<span class="text-[10px] font-black px-2 py-0.5 rounded-full border ${infoPromessa?.corBadge || ''}">${infoPromessa?.rotulo || formatarData(a.data)}</span>`
+
+                    return `
+                      <div class="flex items-center justify-between gap-2 p-2 sm:px-3 sm:py-2 rounded-xl transition ${
+                        pago
+                          ? 'bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-700/50 opacity-70'
+                          : 'bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
+                      }">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                          <button type="button" data-alternar-acerto="${a.id}" class="text-base shrink-0 hover:scale-125 transition active:scale-95" title="${pago ? 'Clique para reabrir este acerto' : 'Clique para marcar como quitado'}">
+                            ${pago ? '✅' : '⭕'}
+                          </button>
+                          <div class="min-w-0">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                              <span class="text-xs font-black ${pago ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}">
+                                ${formatarMoeda(a.valor)}
+                              </span>
+                              ${badgeStatus}
+                            </div>
+                            ${a.descricao ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${escaparHTML(a.descricao)}</p>` : ''}
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                          <button data-editar-acerto="${a.id}" class="${cls.btnIcone} text-xs" title="Editar acerto">✏️</button>
+                          <button data-excluir-acerto="${a.id}" class="${cls.btnIcone} text-xs text-rose-500 hover:text-rose-600" title="Excluir acerto">🗑️</button>
+                        </div>
+                      </div>
+                    `
+                  })
+                  .join('')}
+
+                ${
+                  acertos.length > 1
+                    ? `
+                    <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1 pt-1 font-semibold">
+                      <span>Total em Acertos: <strong class="text-slate-800 dark:text-slate-200">${formatarMoeda(totalAgendadoPendente + totalAgendadoPago)}</strong></span>
+                      <span>Pendente: <strong class="text-amber-600 dark:text-amber-400">${formatarMoeda(totalAgendadoPendente)}</strong></span>
+                    </div>
+                  `
+                    : ''
+                }
+              </div>
+            `
+        }
+      </div>
     `
 
-    function abrirModalPromessa(): void {
+    function abrirModalPromessaLegada(): void {
       abrirFormModal({
         titulo: 'Combinar Data de Pagamento',
         campos: [
@@ -311,15 +409,12 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           await definirDataPromessa(c.id, novaData)
           c.data_promessa = novaData
           toast.success('Data de pagamento combinada com sucesso!')
-          renderPainel()
+          await recarregarLancamentos()
         },
       })
     }
 
-    painelEl.querySelector('#btn-agendar-promessa')?.addEventListener('click', abrirModalPromessa)
-    painelEl.querySelector('#btn-alterar-promessa')?.addEventListener('click', abrirModalPromessa)
-
-    painelEl.querySelector('#btn-remover-promessa')?.addEventListener('click', async () => {
+    async function removerPromessaLegada(): Promise<void> {
       const ok = await confirmar({
         titulo: 'Remover data de acerto',
         mensagem: 'Deseja remover a data de pagamento combinada com este cliente?',
@@ -330,10 +425,301 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         await definirDataPromessa(c.id, null)
         c.data_promessa = null
         toast.success('Data combinada removida.')
-        renderPainel()
+        await recarregarLancamentos()
       } catch (err) {
         toast.error(mensagemErro(err, 'Erro ao remover data combinada'))
       }
+    }
+
+    function abrirModalNovoAcerto(): void {
+      const { saldoDevedor } = calcularResumo(compras, pagamentos)
+      abrirFormModal({
+        titulo: 'Novo Acerto Combinado',
+        campos: [
+          {
+            nome: 'data',
+            label: 'Data combinada para pagamento',
+            tipo: 'date',
+            valor: hojeISO(),
+            obrigatorio: true,
+          },
+          {
+            nome: 'valor',
+            label: 'Valor previsto (R$)',
+            tipo: 'valor',
+            valor: saldoDevedor > 0 ? valorParaInput(saldoDevedor) : '0,00',
+            obrigatorio: true,
+          },
+          {
+            nome: 'descricao',
+            label: 'Descrição / Identificação (opcional)',
+            tipo: 'text',
+            valor: '',
+          },
+        ],
+        onSalvar: async v => {
+          await criarAcerto({
+            cliente_id: clienteId,
+            data: validarData(v.data),
+            valor: validarValor(v.valor),
+            descricao: v.descricao,
+          })
+          toast.success('Acerto agendado com sucesso!')
+          await recarregarLancamentos()
+        },
+      })
+    }
+
+    function abrirModalEditarAcerto(acerto: Acerto): void {
+      abrirFormModal({
+        titulo: 'Editar Acerto Combinado',
+        campos: [
+          {
+            nome: 'data',
+            label: 'Data prevista',
+            tipo: 'date',
+            valor: acerto.data,
+            obrigatorio: true,
+          },
+          {
+            nome: 'valor',
+            label: 'Valor previsto (R$)',
+            tipo: 'valor',
+            valor: valorParaInput(acerto.valor),
+            obrigatorio: true,
+          },
+          {
+            nome: 'descricao',
+            label: 'Descrição / Identificação (opcional)',
+            tipo: 'text',
+            valor: acerto.descricao || '',
+          },
+        ],
+        onSalvar: async v => {
+          await atualizarAcerto(acerto.id, clienteId, {
+            data: validarData(v.data),
+            valor: validarValor(v.valor),
+            descricao: v.descricao,
+          })
+          toast.success('Acerto atualizado!')
+          await recarregarLancamentos()
+        },
+      })
+    }
+
+    function abrirModalParcelamento(): void {
+      const { saldoDevedor } = calcularResumo(compras, pagamentos)
+      const valorSugerido = saldoDevedor > 0 ? saldoDevedor : 0
+
+      const overlay = criarOverlay(`
+        <div class="space-y-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">➗ Parcelar Saldo / Acertos</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Divida o valor em múltiplas datas combinadas para este cliente.</p>
+            </div>
+            <button type="button" data-fechar class="${cls.btnIcone} text-lg" title="Fechar">✕</button>
+          </div>
+
+          <form id="form-parcelamento" novalidate class="space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="${cls.label}" for="parc-valor-total">Valor Total a Parcelar (R$)</label>
+                <input id="parc-valor-total" type="text" inputmode="decimal" class="${cls.input} font-black" value="${valorParaInput(valorSugerido)}" required autocomplete="off">
+              </div>
+              <div>
+                <label class="${cls.label}" for="parc-qtd">Quantidade de Parcelas</label>
+                <select id="parc-qtd" class="${cls.input} font-bold">
+                  <option value="2">2x</option>
+                  <option value="3" selected>3x</option>
+                  <option value="4">4x</option>
+                  <option value="5">5x</option>
+                  <option value="6">6x</option>
+                  <option value="10">10x</option>
+                  <option value="12">12x</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="${cls.label}" for="parc-intervalo">Intervalo entre parcelas</label>
+                <select id="parc-intervalo" class="${cls.input} font-bold">
+                  <option value="mensal" selected>🗓️ Mensal (a cada 30 dias)</option>
+                  <option value="quinzenal">🗓️ Quinzenal (a cada 15 dias)</option>
+                  <option value="semanal">🗓️ Semanal (a cada 7 dias)</option>
+                </select>
+              </div>
+              <div>
+                <label class="${cls.label}" for="parc-data-primeira">Data da 1ª Parcela</label>
+                <input id="parc-data-primeira" type="date" class="${cls.input} font-bold" value="${calcularDataFutura(hojeISO(), 'mensal', 1)}" required>
+              </div>
+            </div>
+
+            <div>
+              <label class="${cls.label}" for="parc-prefixo-desc">Identificação (opcional)</label>
+              <input id="parc-prefixo-desc" type="text" class="${cls.input}" placeholder="Ex: Parcela da compra..." maxlength="80">
+            </div>
+
+            <!-- Preview das Parcelas -->
+            <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+              <span class="block text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Prévia do Cronograma</span>
+              <div id="parc-preview-lista" class="space-y-1.5 max-h-44 overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button type="button" data-fechar class="${cls.btnSecundario}">Cancelar</button>
+              <button type="submit" id="btn-salvar-parcelamento" class="${cls.btnPrimario}">
+                Confirmar e Agendar Parcelas
+              </button>
+            </div>
+          </form>
+        </div>
+      `)
+
+      const fechar = (): void => overlay.remove()
+      overlay.querySelector('[data-fechar]')?.addEventListener('click', fechar)
+      overlay.querySelectorAll<HTMLButtonElement>('button[data-fechar]').forEach(b => b.addEventListener('click', fechar))
+
+      const form = overlay.querySelector<HTMLFormElement>('#form-parcelamento')!
+      const inputTotal = overlay.querySelector<HTMLInputElement>('#parc-valor-total')!
+      const selectQtd = overlay.querySelector<HTMLSelectElement>('#parc-qtd')!
+      const selectIntervalo = overlay.querySelector<HTMLSelectElement>('#parc-intervalo')!
+      const inputDataPrimeira = overlay.querySelector<HTMLInputElement>('#parc-data-primeira')!
+      const inputDesc = overlay.querySelector<HTMLInputElement>('#parc-prefixo-desc')!
+      const previewEl = overlay.querySelector<HTMLElement>('#parc-preview-lista')!
+
+      function calcularParcelas(): { data: string; valor: number; descricao: string }[] {
+        const total = parseValor(inputTotal.value)
+        if (isNaN(total) || total <= 0) return []
+        const qtd = parseInt(selectQtd.value, 10) || 1
+        const intervalo = selectIntervalo.value as 'quinzenal' | 'mensal' | 'semanal'
+        const dataInicio = inputDataPrimeira.value || hojeISO()
+        const descPrefixo = inputDesc.value.trim()
+
+        const valorCentavos = Math.round(total * 100)
+        const baseCentavos = Math.floor(valorCentavos / qtd)
+        const restoCentavos = valorCentavos - baseCentavos * qtd
+
+        const resultado: { data: string; valor: number; descricao: string }[] = []
+
+        for (let i = 0; i < qtd; i++) {
+          const valorItem = (i === 0 ? baseCentavos + restoCentavos : baseCentavos) / 100
+          const dataItem = calcularDataFutura(dataInicio, intervalo, i)
+          const descItem = descPrefixo
+            ? `${descPrefixo} (${i + 1}/${qtd})`
+            : `Parcela ${i + 1}/${qtd}`
+          resultado.push({ data: dataItem, valor: valorItem, descricao: descItem })
+        }
+
+        return resultado
+      }
+
+      function atualizarPreview(): void {
+        const parcelas = calcularParcelas()
+        if (parcelas.length === 0) {
+          previewEl.innerHTML = `<p class="text-xs text-rose-500 font-bold">Informe um valor total válido maior que zero.</p>`
+          return
+        }
+        previewEl.innerHTML = parcelas
+          .map(
+            p => `
+            <div class="flex items-center justify-between text-xs p-1.5 rounded-lg bg-white dark:bg-slate-700/60 border border-slate-200/60 dark:border-slate-600/60">
+              <span class="font-extrabold text-slate-700 dark:text-slate-300">${escaparHTML(p.descricao)}</span>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500 dark:text-slate-400 font-medium">🗓️ ${formatarData(p.data)}</span>
+                <span class="font-black text-slate-900 dark:text-white">${formatarMoeda(p.valor)}</span>
+              </div>
+            </div>
+          `
+          )
+          .join('')
+      }
+
+      inputTotal.addEventListener('input', atualizarPreview)
+      selectQtd.addEventListener('change', atualizarPreview)
+      inputDataPrimeira.addEventListener('input', atualizarPreview)
+      inputDesc.addEventListener('input', atualizarPreview)
+
+      selectIntervalo.addEventListener('change', () => {
+        const intervalo = selectIntervalo.value as 'quinzenal' | 'mensal' | 'semanal'
+        inputDataPrimeira.value = calcularDataFutura(hojeISO(), intervalo, 1)
+        atualizarPreview()
+      })
+
+      atualizarPreview()
+
+      form.addEventListener('submit', async e => {
+        e.preventDefault()
+        const parcelas = calcularParcelas()
+        if (parcelas.length === 0) {
+          toast.warning('Informe dados válidos para gerar as parcelas.')
+          return
+        }
+        const btnSalvar = form.querySelector<HTMLButtonElement>('#btn-salvar-parcelamento')!
+        btnSalvar.disabled = true
+        try {
+          await criarMultiplosAcertos(clienteId, parcelas)
+          toast.success(`${parcelas.length} parcelas agendadas com sucesso!`)
+          fechar()
+          await recarregarLancamentos()
+        } catch (err) {
+          toast.error(mensagemErro(err, 'Erro ao agendar parcelas'))
+        } finally {
+          btnSalvar.disabled = false
+        }
+      })
+    }
+
+    painelEl.querySelector('#btn-parcelar-saldo')?.addEventListener('click', abrirModalParcelamento)
+    painelEl.querySelector('#btn-novo-acerto')?.addEventListener('click', abrirModalNovoAcerto)
+    painelEl.querySelector('#btn-agendar-promessa-vazia')?.addEventListener('click', abrirModalNovoAcerto)
+    painelEl.querySelector('#btn-alterar-promessa-legada')?.addEventListener('click', abrirModalPromessaLegada)
+    painelEl.querySelector('#btn-remover-promessa-legada')?.addEventListener('click', removerPromessaLegada)
+
+    painelEl.querySelectorAll<HTMLElement>('[data-alternar-acerto]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.alternarAcerto!
+        const acerto = acertos.find(a => a.id === id)
+        if (!acerto) return
+        const novoStatus = acerto.status !== 'pago'
+        try {
+          await alternarStatusAcerto(id, clienteId, novoStatus)
+          toast.success(novoStatus ? 'Acerto marcado como quitado! 🎉' : 'Acerto reaberto como pendente.')
+          await recarregarLancamentos()
+        } catch (err) {
+          toast.error(mensagemErro(err, 'Erro ao atualizar acerto'))
+        }
+      })
+    })
+
+    painelEl.querySelectorAll<HTMLElement>('[data-editar-acerto]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.editarAcerto!
+        const acerto = acertos.find(a => a.id === id)
+        if (acerto) abrirModalEditarAcerto(acerto)
+      })
+    })
+
+    painelEl.querySelectorAll<HTMLElement>('[data-excluir-acerto]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.excluirAcerto!
+        const acerto = acertos.find(a => a.id === id)
+        if (!acerto) return
+        const ok = await confirmar({
+          titulo: 'Excluir acerto',
+          mensagem: `Excluir o acerto de <strong>${formatarMoeda(acerto.valor)}</strong> previsto para ${formatarData(acerto.data)}?`,
+          textoConfirmar: 'Excluir',
+        })
+        if (!ok) return
+        try {
+          await excluirAcerto(id, clienteId)
+          toast.success('Acerto excluído com sucesso.')
+          await recarregarLancamentos()
+        } catch (err) {
+          toast.error(mensagemErro(err, 'Erro ao excluir acerto'))
+        }
+      })
     })
 
     painelEl.querySelector('#btn-editar-cliente')?.addEventListener('click', () => {
@@ -386,14 +772,19 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
   async function recarregarLancamentos(): Promise<void> {
     try {
-      const [novasCompras, novosPagamentos, novoPerfil] = await Promise.all([
+      const [novasCompras, novosPagamentos, novosAcertos, novoPerfil, novosClientes] = await Promise.all([
         listarCompras(clienteId),
         listarPagamentos(clienteId),
+        listarAcertos(clienteId),
         obterPerfilAtual(true),
+        listarClientes(),
       ])
       compras = novasCompras
       pagamentos = novosPagamentos
+      acertos = novosAcertos
       perfil = novoPerfil
+      clientes = novosClientes
+      cliente = clientes.find(item => item.id === clienteId)
       renderPainel()
       renderAbas()
     } catch (e) {
@@ -963,7 +1354,12 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           descricao: descInput.value,
           forma_pagamento,
         })
-        toast.success('Pagamento lançado com sucesso!')
+        const { acertosQuitados } = await abaterAcertosComPagamento(clienteId, valor)
+        if (acertosQuitados.length > 0) {
+          toast.success(`Pagamento lançado e ${acertosQuitados.length} acerto(s) quitado(s) automaticamente! 🎉`)
+        } else {
+          toast.success('Pagamento lançado com sucesso!')
+        }
         form.reset()
         dataInput.value = hojeISO()
         formaSelect.value = 'pix'

@@ -167,6 +167,26 @@ CREATE INDEX IF NOT EXISTS idx_pagamentos_data ON public.pagamentos(data DESC);
 CREATE INDEX IF NOT EXISTS idx_pagamentos_forma ON public.pagamentos(forma_pagamento);
 CREATE INDEX IF NOT EXISTS idx_compras_data ON public.compras(data DESC);
 
+-- ============================================
+-- TABELA: acertos (Cronograma de pagamentos combinados / parcelamentos)
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.acertos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cliente_id UUID NOT NULL REFERENCES public.clientes(id) ON DELETE CASCADE,
+  data DATE NOT NULL,
+  valor NUMERIC(12, 2) NOT NULL CHECK (valor > 0),
+  descricao TEXT,
+  status TEXT NOT NULL DEFAULT 'pendente' CHECK (status IN ('pendente', 'pago', 'cancelado')),
+  pago_em TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  criado_por TEXT,
+  atualizado_por TEXT,
+  atualizado_em TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_acertos_cliente_data ON public.acertos(cliente_id, data ASC);
+CREATE INDEX IF NOT EXISTS idx_acertos_status ON public.acertos(status);
+
 -- Triggers de autoria
 DROP TRIGGER IF EXISTS trg_autoria ON public.autorizados;
 CREATE TRIGGER trg_autoria BEFORE INSERT OR UPDATE ON public.autorizados
@@ -182,6 +202,10 @@ CREATE TRIGGER trg_autoria BEFORE INSERT OR UPDATE ON public.compras
 
 DROP TRIGGER IF EXISTS trg_autoria ON public.pagamentos;
 CREATE TRIGGER trg_autoria BEFORE INSERT OR UPDATE ON public.pagamentos
+  FOR EACH ROW EXECUTE FUNCTION public.definir_autoria();
+
+DROP TRIGGER IF EXISTS trg_autoria ON public.acertos;
+CREATE TRIGGER trg_autoria BEFORE INSERT OR UPDATE ON public.acertos
   FOR EACH ROW EXECUTE FUNCTION public.definir_autoria();
 
 -- ============================================
@@ -329,6 +353,10 @@ CREATE POLICY "compras_equipe" ON public.compras
 
 DROP POLICY IF EXISTS "pagamentos_equipe" ON public.pagamentos;
 CREATE POLICY "pagamentos_equipe" ON public.pagamentos
+  FOR ALL TO authenticated USING (public.tem_acesso()) WITH CHECK (public.tem_acesso());
+
+DROP POLICY IF EXISTS "acertos_equipe" ON public.acertos;
+CREATE POLICY "acertos_equipe" ON public.acertos
   FOR ALL TO authenticated USING (public.tem_acesso()) WITH CHECK (public.tem_acesso());
 
 -- historico: somente leitura (gravado apenas pelos triggers)

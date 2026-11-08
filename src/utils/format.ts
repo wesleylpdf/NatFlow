@@ -380,3 +380,39 @@ export function obterStatusPromessa(
   }
 }
 
+/**
+ * Calcula uma data futura baseada em um intervalo ('quinzenal' | 'mensal' | 'semanal')
+ * e na quantidade de incrementos.
+ */
+export function calcularDataFutura(
+  dataBase: string,
+  intervalo: 'quinzenal' | 'mensal' | 'semanal',
+  incremento: number
+): string {
+  if (incremento === 0) return dataBase
+  const [ano, mes, dia] = dataBase.split('-').map(Number)
+  if (intervalo === 'quinzenal') {
+    const d = new Date(ano, mes - 1, dia)
+    d.setDate(d.getDate() + 15 * incremento)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const dt = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${dt}`
+  }
+  if (intervalo === 'semanal') {
+    const d = new Date(ano, mes - 1, dia)
+    d.setDate(d.getDate() + 7 * incremento)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const dt = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${dt}`
+  }
+  // mensal
+  const d = new Date(ano, mes - 1 + incremento, dia)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dt = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dt}`
+}
+
+

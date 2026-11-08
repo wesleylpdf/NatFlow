@@ -49,6 +49,23 @@ export interface Compra extends AutoriaCampos {
 
 export type FormaPagamento = 'pix' | 'dinheiro' | 'credito' | 'debito' | 'outro'
 
+export type StatusAcerto = 'pendente' | 'pago' | 'cancelado'
+
+/** Acerto combinado com o cliente (parcela ou promessa de pagamento) */
+export interface Acerto extends AutoriaCampos {
+  id: string
+  cliente_id: string
+  data: string
+  valor: number
+  descricao?: string | null
+  status: StatusAcerto
+  pago_em?: string | null
+}
+
+export type NovoAcerto = Pick<Acerto, 'cliente_id' | 'data' | 'valor'> & {
+  descricao?: string | null
+}
+
 /** Entrada: valor pago pelo cliente. */
 export interface Pagamento extends AutoriaCampos {
   id: string

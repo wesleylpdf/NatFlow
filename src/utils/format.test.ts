@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  calcularDataFutura,
   calcularDiasAtraso,
   obterStatusPromessa,
   escaparHTML,
@@ -169,5 +170,14 @@ describe('formatadores', () => {
     const futuraRes = obterStatusPromessa('2026-11-15', hoje)
     expect(futuraRes?.status).toBe('a_vencer')
     expect(futuraRes?.rotulo).toContain('🗓️ Acerto: 15/11/2026')
+  })
+
+  it('calcularDataFutura calcula datas por intervalo', () => {
+    const base = '2026-11-01'
+    expect(calcularDataFutura(base, 'mensal', 0)).toBe('2026-11-01')
+    expect(calcularDataFutura(base, 'quinzenal', 1)).toBe('2026-11-16')
+    expect(calcularDataFutura(base, 'semanal', 1)).toBe('2026-11-08')
+    expect(calcularDataFutura(base, 'mensal', 1)).toBe('2026-12-01')
+    expect(calcularDataFutura(base, 'mensal', 2)).toBe('2027-01-01')
   })
 })
