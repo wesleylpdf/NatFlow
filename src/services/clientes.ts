@@ -78,6 +78,63 @@ export async function listarClientesComSaldo(): Promise<ClienteComSaldo[]> {
     }
   }
 
+  // Encontra acertos pendentes para enriquecer os clientes com próximo acerto e quantidade
+  try {
+    const { data: acertosData, error: errAcertos } = await supabase
+      .from('acertos')
+      .select('cliente_id, data, valor, status')
+      .eq('status', 'pendente')
+      .order('data', { ascending: true })
+
+    const mapaAcertos = new Map<string, { data: string; valor: number }[]>()
+
+    if (!errAcertos && acertosData) {
+      for (const a of acertosData) {
+        if (!mapaAcertos.has(a.cliente_id)) mapaAcertos.set(a.cliente_id, [])
+        mapaAcertos.get(a.cliente_id)!.push({ data: a.data, valor: Number(a.valor) })
+      }
+    }
+
+    // Complementa com localStorage se houver
+    if (typeof localStorage !== 'undefined') {
+      for (const cli of lista) {
+        if (!mapaAcertos.has(cli.id)) {
+          const raw = localStorage.getItem(`natflow_acertos_${cli.id}`)
+          if (raw) {
+            try {
+              const locais = JSON.parse(raw) as { data: string; valor: number; status: string }[]
+              const pendentes = locais
+                .filter(l => l.status === 'pendente')
+                .sort((a, b) => a.data.localeCompare(b.data))
+              if (pendentes.length > 0) {
+                mapaAcertos.set(cli.id, pendentes)
+              }
+            } catch {
+              // json opcional
+            }
+          }
+        }
+      }
+    }
+
+    for (const cli of lista) {
+      const pendentes = mapaAcertos.get(cli.id)
+      if (pendentes && pendentes.length > 0) {
+        cli.proximo_acerto_data = pendentes[0].data
+        cli.proximo_acerto_valor = pendentes[0].valor
+        cli.qtd_acertos_pendentes = pendentes.length
+        if (!cli.data_promessa) cli.data_promessa = pendentes[0].data
+      } else if (cli.data_promessa && cli.saldo_devedor > 0) {
+        // Legado (promessa sem acerto cadastrado)
+        cli.proximo_acerto_data = cli.data_promessa
+        cli.proximo_acerto_valor = cli.saldo_devedor
+        cli.qtd_acertos_pendentes = 1
+      }
+    }
+  } catch (err) {
+    console.warn('[Clientes] Erro ao carregar acertos para lista:', err)
+  }
+
   // Preenche data de promessa do localStorage se não vier na view
   for (const cli of lista) {
     if (!cli.data_promessa && typeof localStorage !== 'undefined') {

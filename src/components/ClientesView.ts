@@ -381,8 +381,9 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     const totalAntigos = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
     const totalEmDia = clientes.filter(c => c.saldo_devedor <= 0).length
     const totalPromessas = clientes.filter(c => {
-      if (c.saldo_devedor <= 0 || !c.data_promessa) return false
-      const st = obterStatusPromessa(c.data_promessa)?.status
+      const dataProm = c.data_promessa || c.proximo_acerto_data
+      if (c.saldo_devedor <= 0 || !dataProm) return false
+      const st = obterStatusPromessa(dataProm)?.status
       return st === 'vence_hoje' || st === 'vencida'
     }).length
 
@@ -407,8 +408,9 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     const filtrados = clientes.filter(c => {
       // Regra do filtro selecionável
       if (filtroStatus === 'promessas') {
-        if (c.saldo_devedor <= 0 || !c.data_promessa) return false
-        const st = obterStatusPromessa(c.data_promessa)?.status
+        const dataProm = c.data_promessa || c.proximo_acerto_data
+        if (c.saldo_devedor <= 0 || !dataProm) return false
+        const st = obterStatusPromessa(dataProm)?.status
         if (st !== 'vence_hoje' && st !== 'vencida') return false
       }
       if (filtroStatus === 'devedores' && c.saldo_devedor <= 0) return false
@@ -454,7 +456,30 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
       .map(c => {
         const dias = c.dias_atraso || 0
         const temAtraso = c.saldo_devedor > 0 && dias >= 30
-        const infoPromessa = c.saldo_devedor > 0 ? obterStatusPromessa(c.data_promessa) : null
+        const dataPromessa = c.data_promessa || c.proximo_acerto_data
+        const infoPromessa = c.saldo_devedor > 0 ? obterStatusPromessa(dataPromessa) : null
+
+        let subtituloAcerto = ''
+        if (c.saldo_devedor > 0 && infoPromessa && dataPromessa) {
+          const dataFormatada = formatarData(dataPromessa).slice(0, 5) // DD/MM
+          const valorFormatado = c.proximo_acerto_valor ? ` (${formatarMoeda(c.proximo_acerto_valor)})` : ''
+          const qtdRestante =
+            c.qtd_acertos_pendentes && c.qtd_acertos_pendentes > 1
+              ? ` • ${c.qtd_acertos_pendentes} restantes`
+              : ''
+
+          subtituloAcerto = `
+          <div class="mt-1 flex items-center gap-1.5 text-[11px] font-black ${
+            infoPromessa.status === 'vencida'
+              ? 'text-rose-700 dark:text-rose-300'
+              : infoPromessa.status === 'vence_hoje'
+                ? 'text-amber-800 dark:text-amber-200'
+                : 'text-sky-700 dark:text-sky-300'
+          }">
+            <span>${infoPromessa.status === 'vencida' ? '🚨' : infoPromessa.status === 'vence_hoje' ? '⏰' : '🗓️'}</span>
+            <span>Próximo acerto: ${dataFormatada}${valorFormatado}${qtdRestante}</span>
+          </div>`
+        }
 
         const avisoAtraso = temAtraso
           ? `
@@ -509,6 +534,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
                 <span>•</span>
                 <span class="text-[11px] text-slate-400 dark:text-slate-500">${formatarAutoriaResumida(c, mapaMembros)}</span>
               </div>
+              ${subtituloAcerto}
               ${avisoAtraso}
             </div>
             ${badgeSaldo(c.saldo_devedor, c.dias_atraso)}

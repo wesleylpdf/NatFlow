@@ -36,6 +36,9 @@ export interface ClienteComSaldo extends Cliente {
   ultima_compra?: string | null
   primeira_compra?: string | null
   dias_atraso?: number
+  proximo_acerto_data?: string | null
+  proximo_acerto_valor?: number | null
+  qtd_acertos_pendentes?: number
 }
 
 /** Saída: produto comprado pelo cliente. */
