@@ -1,9 +1,10 @@
 import { logout } from '@/hooks/useAuth'
 import { obterPerfilAtual, limparCachePerfil, atualizarMeuPerfil } from '@/services/equipe'
-import { abrirFormModal } from '@/components/Modal'
+import { abrirFormModal, criarOverlay } from '@/components/Modal'
+import { CHANGELOG } from '@/data/changelog'
 import { escaparHTML } from '@/utils/format'
 import { toast, mensagemErro } from '@/utils/toast'
-import { sincronizarBarraSistema } from '@/utils/ui'
+import { cls, sincronizarBarraSistema } from '@/utils/ui'
 import { acionarInstalacaoPWA, onDisponibilidadeInstalacao } from '@/utils/pwaInstall'
 
 const CHAVE_TEMA = 'natflow_tema'
@@ -87,6 +88,144 @@ export function abrirModalMeuPerfil(aoSalvar?: () => void): void {
   })()
 }
 
+/**
+ * Abre o modal interativo com o histórico de novidades, alterações e remoções (Changelog).
+ */
+export function abrirModalChangelog(): void {
+  const versoesHTML = CHANGELOG.map((item, idx) => {
+    const ehMaisRecente = idx === 0
+    const badgeVersao = ehMaisRecente
+      ? `<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black tracking-wide shrink-0">Atual • ${escaparHTML(item.versao)}</span>`
+      : `<span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold shrink-0">${escaparHTML(item.versao)}</span>`
+
+    const secaoAdicionado =
+      item.adicionado && item.adicionado.length > 0
+        ? `
+        <div class="space-y-1">
+          <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <span>✨</span><span>Novidades</span>
+          </div>
+          <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
+            ${item.adicionado
+              .map(
+                texto =>
+                  `<li class="flex items-start gap-1.5"><span class="text-emerald-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
+              )
+              .join('')}
+          </ul>
+        </div>
+      `
+        : ''
+
+    const secaoAlterado =
+      item.alterado && item.alterado.length > 0
+        ? `
+        <div class="space-y-1">
+          <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
+            <span>🔄</span><span>Alterado / Melhorias</span>
+          </div>
+          <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
+            ${item.alterado
+              .map(
+                texto =>
+                  `<li class="flex items-start gap-1.5"><span class="text-sky-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
+              )
+              .join('')}
+          </ul>
+        </div>
+      `
+        : ''
+
+    const secaoRemovido =
+      item.removido && item.removido.length > 0
+        ? `
+        <div class="space-y-1">
+          <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
+            <span>🗑️</span><span>Removido / Simplificado</span>
+          </div>
+          <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
+            ${item.removido
+              .map(
+                texto =>
+                  `<li class="flex items-start gap-1.5"><span class="text-rose-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
+              )
+              .join('')}
+          </ul>
+        </div>
+      `
+        : ''
+
+    return `
+      <div class="p-3.5 rounded-2xl border ${
+        ehMaisRecente
+          ? 'border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-500/10'
+          : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40'
+      } space-y-2.5">
+        <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
+          <div class="flex items-center gap-2">
+            ${badgeVersao}
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">${escaparHTML(item.data)}</span>
+          </div>
+        </div>
+        <h4 class="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+          ${escaparHTML(item.titulo)}
+        </h4>
+        <div class="space-y-2 pt-1">
+          ${secaoAdicionado}
+          ${secaoAlterado}
+          ${secaoRemovido}
+        </div>
+      </div>
+    `
+  }).join('')
+
+  const overlay = criarOverlay(`
+    <div class="space-y-4">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-lg shrink-0">
+            🚀
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+              Atualizações do NatFlow
+            </h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Histórico de novidades, o que foi alterado e o que foi removido.
+            </p>
+          </div>
+        </div>
+        <button type="button" data-fechar class="${cls.btnIcone} text-lg shrink-0" title="Fechar">✕</button>
+      </div>
+
+      <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+        ${versoesHTML}
+      </div>
+
+      <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+        <button type="button" data-fechar class="${cls.btnPrimario} w-full sm:w-auto text-xs py-2 px-4">
+          Entendido, fechar
+        </button>
+      </div>
+    </div>
+  `)
+
+  const fechar = (): void => overlay.remove()
+  overlay.querySelectorAll('[data-fechar]').forEach(btn => btn.addEventListener('click', fechar))
+
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) fechar()
+  })
+
+  const onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      fechar()
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }
+  document.addEventListener('keydown', onKeyDown)
+}
+
 export async function criarHeader(container: HTMLElement, email: string): Promise<void> {
   let nomeExibicao = email.split('@')[0]
   let badgePapel = ''
@@ -130,7 +269,10 @@ export async function criarHeader(container: HTMLElement, email: string): Promis
           <div class="flex flex-col min-w-0">
             <div class="flex items-center gap-1.5">
               <a href="#/" class="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white shrink-0 hover:underline">NatFlow</a>
-              <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold shrink-0">v${__BUILD_VERSION__}</span>
+              <button id="btn-versao-changelog" type="button" class="group text-[9px] px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-black shrink-0 cursor-pointer transition flex items-center gap-1 shadow-sm" title="Ver novidades e o que mudou na versão v${__BUILD_VERSION__}">
+                <span>v${__BUILD_VERSION__}</span>
+                <span class="text-[8px] opacity-75 group-hover:opacity-100 group-hover:rotate-12 transition">✨</span>
+              </button>
             </div>
             <button id="btn-perfil-header" type="button" class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 min-w-0 hover:text-emerald-600 dark:hover:text-emerald-400 text-left transition group cursor-pointer mt-0.5" title="Clique para editar seu nome e sua Chave PIX">
               <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
@@ -205,6 +347,10 @@ export async function criarHeader(container: HTMLElement, email: string): Promis
     } else if (resultado === 'indisponivel') {
       toast.info('O aplicativo já está instalado ou seu navegador não suporta instalação direta.')
     }
+  })
+
+  container.querySelector('#btn-versao-changelog')?.addEventListener('click', () => {
+    abrirModalChangelog()
   })
 
   container.querySelector('#btn-perfil-header')!.addEventListener('click', () => {
