@@ -16,6 +16,8 @@ import {
   excluirAcerto,
   alternarStatusAcerto,
   abaterAcertosComPagamento,
+  limparAcertosPendentes,
+  reajustarDescricoesParcelas,
   parseDescricaoParcela,
   formatarDescricaoParcela,
 } from '@/services/acertos'
@@ -382,8 +384,11 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                             ? `<div class="text-[11px] text-amber-700 dark:text-amber-300 font-bold px-1 flex items-center justify-between">
                                  <span>⚠️ Restante do saldo: <strong>${formatarMoeda(saldoDevedor - totalAgendadoPendente)}</strong> ainda sem acerto</span>
                                </div>`
-                            : `<div class="text-[11px] text-sky-700 dark:text-sky-300 font-bold px-1">
+                            : `<div class="text-[11px] text-sky-700 dark:text-sky-300 font-bold px-1 flex items-center justify-between gap-1 flex-wrap">
                                  <span>ℹ️ Acertos somam <strong>+${formatarMoeda(totalAgendadoPendente - saldoDevedor)}</strong> a mais que o saldo devedor</span>
+                                 <button id="btn-ajustar-saldo-acertos" type="button" class="text-[10px] font-black px-2 py-0.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-800 dark:text-sky-300 border border-sky-500/30 transition cursor-pointer" title="Redistribuir o saldo devedor atual igualmente entre as parcelas pendentes">
+                                   ⚖️ Ajustar ao Saldo
+                                 </button>
                                </div>`
                           : ''
                       }
@@ -888,6 +893,35 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
     painelEl.querySelector('#btn-parcelar-saldo')?.addEventListener('click', abrirModalParcelamento)
     painelEl.querySelector('#btn-novo-acerto')?.addEventListener('click', abrirModalNovoAcerto)
+
+    painelEl.querySelector('#btn-ajustar-saldo-acertos')?.addEventListener('click', async () => {
+      const { saldoDevedor } = calcularResumo(compras, pagamentos)
+      if (saldoDevedor <= 0 || acertosPendentes.length === 0) return
+
+      const ok = await confirmar({
+        titulo: 'Ajustar Parcelas ao Saldo Devedor',
+        mensagem: `O saldo devedor atual é de ${formatarMoeda(saldoDevedor)}, mas as ${acertosPendentes.length} parcelas agendadas somam ${formatarMoeda(totalAgendadoPendente)}. Deseja redistribuir o saldo devedor igualmente entre as parcelas?`,
+        textoConfirmar: 'Ajustar Parcelas',
+      })
+      if (!ok) return
+
+      try {
+        const qtd = acertosPendentes.length
+        const valorBase = Math.floor((saldoDevedor / qtd) * 100) / 100
+        const diferencaCentavos = Math.round((saldoDevedor - valorBase * qtd) * 100)
+
+        for (let i = 0; i < qtd; i++) {
+          const centavoExtra = i < diferencaCentavos ? 0.01 : 0
+          const novoValor = Math.round((valorBase + centavoExtra) * 100) / 100
+          await atualizarAcerto(acertosPendentes[i].id, clienteId, { valor: novoValor })
+        }
+
+        toast.success(`Parcelas ajustadas com sucesso para o saldo de ${formatarMoeda(saldoDevedor)}! 🎉`)
+        await recarregarLancamentos()
+      } catch (err) {
+        toast.error(mensagemErro(err, 'Erro ao ajustar parcelas'))
+      }
+    })
 
     painelEl.querySelectorAll<HTMLElement>('[data-quitar-acerto]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1592,6 +1626,14 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         const val = btn.dataset.valor
         const desc = btn.dataset.desc
         if (id && val) {
+          if (acertoSelecionadoId === id) {
+            // Se já estava selecionado, desseleciona ao clicar de novo
+            acertoSelecionadoId = null
+            limparSelecaoAcertos()
+            valorInput.value = ''
+            descInput.value = ''
+            return
+          }
           acertoSelecionadoId = id
           valorInput.value = valorParaInput(Number(val))
           descInput.value = desc || ''
@@ -1602,13 +1644,9 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     })
 
     valorInput.addEventListener('input', () => {
-      if (acertoSelecionadoId) {
-        const v = parseValor(valorInput.value)
-        const acertoAtual = acertosPendentes.find(a => a.id === acertoSelecionadoId)
-        if (acertoAtual && Math.abs(acertoAtual.valor - v) > 0.01) {
-          acertoSelecionadoId = null
-          limparSelecaoAcertos()
-        }
+      if (acertoSelecionadoId && valorInput.value.trim() === '') {
+        acertoSelecionadoId = null
+        limparSelecaoAcertos()
       }
     })
 
@@ -1628,33 +1666,64 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           forma_pagamento,
         })
 
-        // Identifica se há acerto correspondente para excluir
-        let acertoParaExcluir = acertoSelecionadoId
-        if (!acertoParaExcluir) {
+        // Identifica se há acerto correspondente para abater/excluir
+        let acertoAlvoId = acertoSelecionadoId
+        if (!acertoAlvoId) {
           const matchAcerto = acertosPendentes.find(
             a =>
               Math.abs(a.valor - valor) < 0.01 &&
               a.descricao?.trim().toLowerCase() === descInput.value.trim().toLowerCase()
           )
           if (matchAcerto) {
-            acertoParaExcluir = matchAcerto.id
+            acertoAlvoId = matchAcerto.id
           }
         }
 
-        if (acertoParaExcluir) {
-          // Exclui automaticamente o correspondente no Cronograma de Acertos e renumera restantes
-          await excluirAcerto(acertoParaExcluir, clienteId)
-          toast.success(
-            `Pagamento lançado e ${descInput.value ? `"${descInput.value}"` : 'parcela'} baixada do Cronograma! 🎉`
-          )
+        if (acertoAlvoId) {
+          const acertoAlvo = acertosPendentes.find(a => a.id === acertoAlvoId)
+          if (acertoAlvo) {
+            if (valor >= acertoAlvo.valor - 0.05) {
+              await excluirAcerto(acertoAlvo.id, clienteId)
+              const sobra = valor - acertoAlvo.valor
+              if (sobra > 0.05) {
+                await abaterAcertosComPagamento(clienteId, sobra)
+              }
+              toast.success(
+                `Pagamento lançado e ${descInput.value ? `"${descInput.value}"` : 'parcela'} baixada do Cronograma! 🎉`
+              )
+            } else {
+              // Abatimento parcial da parcela selecionada
+              const novoValor = Math.round((acertoAlvo.valor - valor) * 100) / 100
+              await atualizarAcerto(acertoAlvo.id, clienteId, { valor: novoValor })
+              await reajustarDescricoesParcelas(clienteId)
+              toast.success(
+                `Pagamento lançado! Parcela abatida de ${formatarMoeda(acertoAlvo.valor)} para ${formatarMoeda(novoValor)} no Cronograma! 🎉`
+              )
+            }
+          }
         } else {
-          // Se não vinculou a um acerto específico, abate acertos pendentes mais antigos
-          const { acertosQuitados } = await abaterAcertosComPagamento(clienteId, valor)
-          if (acertosQuitados.length > 0) {
-            toast.success(`Pagamento lançado e ${acertosQuitados.length} acerto(s) quitado(s) automaticamente! 🎉`)
+          // Se não vinculou a um acerto específico, abate acertos pendentes em cascata cronológica
+          const { acertosQuitados, acertoParcial } = await abaterAcertosComPagamento(clienteId, valor)
+          if (acertosQuitados.length > 0 && acertoParcial) {
+            toast.success(
+              `Pagamento lançado! ${acertosQuitados.length} parcela(s) quitada(s) e próxima reduzida para ${formatarMoeda(acertoParcial.novoValor)}! 🎉`
+            )
+          } else if (acertosQuitados.length > 0) {
+            toast.success(
+              `Pagamento lançado e ${acertosQuitados.length} parcela(s) baixada(s) do Cronograma! 🎉`
+            )
+          } else if (acertoParcial) {
+            toast.success(
+              `Pagamento lançado! Parcela de ${formatarMoeda(acertoParcial.valorAnterior)} abatida para ${formatarMoeda(acertoParcial.novoValor)} no Cronograma! 🎉`
+            )
           } else {
             toast.success('Pagamento lançado com sucesso!')
           }
+        }
+
+        // Se o saldo do cliente foi totalmente zerado ou quitado pelo pagamento, limpa eventuais acertos pendentes que sobraram
+        if (saldoDevedor - valor <= 0.009) {
+          await limparAcertosPendentes(clienteId)
         }
 
         form.reset()

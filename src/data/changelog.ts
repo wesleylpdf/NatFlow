@@ -10,10 +10,26 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.39',
+    data: '08/11/2026',
+    titulo: 'Abatimento Inteligente em Cascata e Parcial de Parcelas',
+    destaque: true,
+    adicionado: [
+      'Abatimento parcial inteligente: pagamentos avulsos menores que o acerto agora abatem diretamente o valor da parcela (ex: de R$ 50 para R$ 20), mantendo a data combinada.',
+      'Abatimento em cascata cronológica: pagamentos avulsos que cobrem uma ou mais parcelas baixam as quitadas do Cronograma e reduzem a próxima pelo valor excedente.',
+      'Botão "⚖️ Ajustar ao Saldo" no Cronograma caso o total agendado seja superior ao saldo devedor do cliente.',
+      'Limpeza automática inteligente de acertos pendentes caso o saldo do cliente seja totalmente zerado.'
+    ],
+    alterado: [
+      'Clique nos botões de atalho de parcelas no formulário de pagamento agora permite alternar a seleção (clique para selecionar, clique novamente para desmarcar).',
+      'Unificação total entre baixas manuais e avulsas com renumeração dinâmica automática de parcelas.'
+    ]
+  },
+  {
     versao: 'v1.2.38',
     data: '08/11/2026',
     titulo: 'Modernização do Sistema: Aposentadoria da Coluna data_promessa',
-    destaque: true,
+    destaque: false,
     removido: [
       'Remoção definitiva do campo legado "data_promessa" na tabela de clientes e no schema do banco.',
       'Eliminação de métodos legados de sincronização no frontend.',

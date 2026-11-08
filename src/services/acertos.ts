@@ -348,37 +348,74 @@ export async function alternarStatusAcerto(
   })
 }
 
+export interface ResultadoAbatimento {
+  acertosQuitados: Acerto[]
+  acertoParcial: {
+    acertoId: string
+    valorAnterior: number
+    novoValor: number
+  } | null
+}
+
 /**
- * Abate automaticamente os acertos pendentes mais antigos quando um pagamento é registrado.
- * Retorna os acertos que foram quitados por este pagamento.
+ * Abate automaticamente os acertos pendentes em cascata cronológica (do mais antigo para o mais recente)
+ * quando um pagamento é registrado.
+ * - Parcela com valor totalmente coberto é EXCLUÍDA do Cronograma e as restantes são renumeradas.
+ * - Parcela com valor parcialmente coberto tem seu valor REDUZIDO pelo saldo restante do pagamento.
  */
 export async function abaterAcertosComPagamento(
   clienteId: string,
   valorPago: number
-): Promise<{ acertosQuitados: Acerto[] }> {
-  if (valorPago <= 0) return { acertosQuitados: [] }
+): Promise<ResultadoAbatimento> {
+  if (valorPago <= 0) return { acertosQuitados: [], acertoParcial: null }
 
   const acertos = await listarAcertos(clienteId)
   const pendentes = acertos
     .filter(a => a.status === 'pendente')
     .sort((a, b) => a.data.localeCompare(b.data))
 
-  if (pendentes.length === 0) return { acertosQuitados: [] }
+  if (pendentes.length === 0) return { acertosQuitados: [], acertoParcial: null }
 
   let saldoDisponivel = valorPago
   const quitados: Acerto[] = []
+  let acertoParcial: ResultadoAbatimento['acertoParcial'] = null
 
   for (const acerto of pendentes) {
-    // Se o valor pago cobrir o acerto integralmente (com tolerância de centavos)
+    if (saldoDisponivel <= 0.009) break
+
+    // Se o valor disponível cobre integralmente a parcela (com tolerância de centavos)
     if (saldoDisponivel >= acerto.valor - 0.05) {
-      await alternarStatusAcerto(acerto.id, clienteId, true)
       saldoDisponivel -= acerto.valor
-      quitados.push({ ...acerto, status: 'pago' })
+      quitados.push(acerto)
+      await excluirAcerto(acerto.id, clienteId)
     } else {
-      // Se não cobrir a parcela inteira, para o abatimento
+      // Abatimento parcial da parcela
+      const valorAnterior = acerto.valor
+      const novoValor = Math.round((acerto.valor - saldoDisponivel) * 100) / 100
+      acertoParcial = {
+        acertoId: acerto.id,
+        valorAnterior,
+        novoValor,
+      }
+      saldoDisponivel = 0
+      await atualizarAcerto(acerto.id, clienteId, { valor: novoValor })
       break
     }
   }
 
-  return { acertosQuitados: quitados }
+  // Renumera as parcelas restantes
+  await reajustarDescricoesParcelas(clienteId)
+
+  return { acertosQuitados: quitados, acertoParcial }
+}
+
+/**
+ * Remove todos os acertos pendentes de um cliente (usado quando o saldo devedor é totalmente zerado).
+ */
+export async function limparAcertosPendentes(clienteId: string): Promise<void> {
+  const acertos = await listarAcertos(clienteId)
+  const pendentes = acertos.filter(a => a.status === 'pendente')
+  for (const a of pendentes) {
+    await excluirAcerto(a.id, clienteId)
+  }
 }

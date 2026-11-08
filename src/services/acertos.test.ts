@@ -44,3 +44,39 @@ describe('parseDescricaoParcela e formatarDescricaoParcela', () => {
     expect(formatarDescricaoParcela('Compra Natura', true, 2, 2)).toBe('Compra Natura (2/2)')
   })
 })
+
+describe('lógica de abatimento em cascata de parcelas', () => {
+  it('calcula corretamente o abatimento parcial de uma parcela', () => {
+    const valorParcela = 50.0
+    const valorPago = 30.0
+    const novoValor = Math.round((valorParcela - valorPago) * 100) / 100
+    expect(novoValor).toBe(20.0)
+  })
+
+  it('calcula cascata quando pagamento cobre uma parcela e sobra para a próxima', () => {
+    const parcelas = [
+      { id: '1', valor: 30.0 },
+      { id: '2', valor: 30.0 },
+      { id: '3', valor: 29.0 },
+    ]
+    let saldoDisponivel = 45.0
+    const quitadas: string[] = []
+    let parcial: { id: string; novoValor: number } | null = null
+
+    for (const p of parcelas) {
+      if (saldoDisponivel <= 0.009) break
+      if (saldoDisponivel >= p.valor - 0.05) {
+        saldoDisponivel -= p.valor
+        quitadas.push(p.id)
+      } else {
+        parcial = { id: p.id, novoValor: Math.round((p.valor - saldoDisponivel) * 100) / 100 }
+        saldoDisponivel = 0
+        break
+      }
+    }
+
+    expect(quitadas).toEqual(['1'])
+    expect(parcial).toEqual({ id: '2', novoValor: 15.0 })
+    expect(saldoDisponivel).toBe(0)
+  })
+})
