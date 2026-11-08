@@ -10,13 +10,24 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.32',
+    data: '08/11/2026',
+    titulo: 'Limpeza e Otimização do Modal de Atualizações',
+    destaque: true,
+    alterado: [
+      'Botão "Verificar Atualizações no Servidor" expandido para ocupar toda a largura com layout limpo.'
+    ],
+    removido: [
+      'Botão de teste temporário de notificação removido após a validação em produção.'
+    ]
+  },
+  {
     versao: 'v1.2.30',
     data: '08/11/2026',
-    titulo: 'Central de Notificações e Teste de Atualizações',
-    destaque: true,
+    titulo: 'Central de Notificações e Verificação de Atualizações',
     adicionado: [
       'Banner destacado de nova versão com opções de atualizar instantaneamente ou consultar o que mudou.',
-      'Botões "🧪 Testar Notificação" e "🔍 Verificar Atualizações" adicionados no modal da versão no cabeçalho.'
+      'Botão "🔍 Verificar Atualizações" no modal da versão no cabeçalho.'
     ],
     alterado: [
       'Notificação pós-carregamento ajustada para garantir visibilidade com a tela pronta e carregada.'
