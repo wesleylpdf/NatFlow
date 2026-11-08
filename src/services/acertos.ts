@@ -227,8 +227,123 @@ export async function atualizarAcerto(
   await sincronizarProximaPromessa(clienteId, locais)
 }
 
+export interface InfoParcela {
+  prefixo: string
+  temParenteses: boolean
+  indiceAntigo: number
+  totalAntigo: number
+}
+
+export function parseDescricaoParcela(desc: string | null | undefined): InfoParcela | null {
+  if (!desc) return null
+  const texto = desc.trim()
+
+  // Caso 1: "Prefixo (1/3)" ou "(1/3)"
+  const matchParenteses = texto.match(/^(.*?)\s*\(\s*(\d+)\s*\/\s*(\d+)\s*\)$/i)
+  if (matchParenteses) {
+    return {
+      prefixo: matchParenteses[1].trim(),
+      temParenteses: true,
+      indiceAntigo: parseInt(matchParenteses[2], 10),
+      totalAntigo: parseInt(matchParenteses[3], 10),
+    }
+  }
+
+  // Caso 2: "Parcela 1/3" ou "Prefixo Parcela 1/3" ou "Prefixo 1/3" ou "1/3"
+  const matchBarra = texto.match(/^(.*?)\s*(\d+)\s*\/\s*(\d+)$/i)
+  if (matchBarra) {
+    let pref = matchBarra[1]?.trim() || ''
+    // Remove palavra "Parcela" avulsa no prefixo se existir
+    pref = pref.replace(/(?:^|\s+)Parcela$/i, '').trim()
+    return {
+      prefixo: pref,
+      temParenteses: false,
+      indiceAntigo: parseInt(matchBarra[2], 10),
+      totalAntigo: parseInt(matchBarra[3], 10),
+    }
+  }
+
+  return null
+}
+
+export function formatarDescricaoParcela(
+  prefixo: string,
+  temParenteses: boolean,
+  indice: number,
+  total: number
+): string {
+  if (temParenteses) {
+    return prefixo ? `${prefixo} (${indice}/${total})` : `(${indice}/${total})`
+  }
+  if (prefixo) {
+    return `${prefixo} Parcela ${indice}/${total}`
+  }
+  return `Parcela ${indice}/${total}`
+}
+
 /**
- * Exclui um acerto combinado.
+ * Reajusta e renumera automaticamente as parcelas restantes de um cliente
+ * caso uma parcela tenha sido excluída ou o total tenha mudado.
+ */
+export async function reajustarDescricoesParcelas(clienteId: string): Promise<void> {
+  const acertos = await listarAcertos(clienteId)
+  if (acertos.length === 0) return
+
+  // Agrupa os acertos por padrão de parcelamento identificado
+  const grupos = new Map<string, { acerto: Acerto; info: InfoParcela }[]>()
+
+  for (const a of acertos) {
+    const info = parseDescricaoParcela(a.descricao)
+    if (!info) continue
+
+    const chave = `${info.prefixo}__${info.temParenteses}`
+    if (!grupos.has(chave)) grupos.set(chave, [])
+    grupos.get(chave)!.push({ acerto: a, info })
+  }
+
+  const locais = obterAcertosLocais(clienteId)
+  let alterouLocal = false
+
+  for (const [, itens] of grupos) {
+    const novoTotal = itens.length
+    // Ordena cronologicamente por data do acerto
+    itens.sort((a, b) => a.acerto.data.localeCompare(b.acerto.data))
+
+    for (let i = 0; i < itens.length; i++) {
+      const { acerto, info } = itens[i]
+      const novoIndice = i + 1
+      const novaDesc = formatarDescricaoParcela(info.prefixo, info.temParenteses, novoIndice, novoTotal)
+
+      if (acerto.descricao !== novaDesc) {
+        acerto.descricao = novaDesc
+
+        // Atualiza no banco
+        try {
+          await supabase
+            .from('acertos')
+            .update({ descricao: novaDesc })
+            .eq('id', acerto.id)
+        } catch {
+          // fallback
+        }
+
+        // Atualiza no localStorage
+        const idxLocal = locais.findIndex(l => l.id === acerto.id)
+        if (idxLocal >= 0) {
+          locais[idxLocal].descricao = novaDesc
+          alterouLocal = true
+        }
+      }
+    }
+  }
+
+  if (alterouLocal) {
+    salvarAcertosLocais(clienteId, locais)
+  }
+}
+
+/**
+ * Exclui um acerto combinado e reajusta as parcelas restantes.
  */
 export async function excluirAcerto(id: string, clienteId: string): Promise<void> {
   try {
@@ -244,7 +359,11 @@ export async function excluirAcerto(id: string, clienteId: string): Promise<void
 
   const locais = obterAcertosLocais(clienteId).filter(a => a.id !== id)
   salvarAcertosLocais(clienteId, locais)
-  await sincronizarProximaPromessa(clienteId, locais)
+
+  // Reajusta e renumera automaticamente as parcelas restantes (ex: de 1/3 e 2/3 passam a ser 1/2 e 2/2)
+  await reajustarDescricoesParcelas(clienteId)
+
+  await sincronizarProximaPromessa(clienteId)
 }
 
 /**

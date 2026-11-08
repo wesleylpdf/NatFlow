@@ -10,10 +10,21 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.34',
+    data: '08/11/2026',
+    titulo: 'Correção e Sincronização Dinâmica do Parcelamento de Acertos',
+    destaque: true,
+    alterado: [
+      'Renumeração inteligente de parcelas: ao excluir qualquer parcela, as restantes são atualizadas automaticamente (ex: de 1/3 e 2/3 passam a ser 1/2 e 2/2).',
+      'Remoção de parcelas individuais no próprio modal de parcelamento com botão ✕ e renumeração em tempo real.',
+      'Novo botão "⚖️ Redistribuir total igualmente" no modal de parcelamento para recalcular valores proporcionais com um clique.',
+      'Alerta na ficha do cliente indicando saldo devedor restante caso os acertos não cubram o saldo total.'
+    ]
+  },
+  {
     versao: 'v1.2.33',
     data: '08/11/2026',
     titulo: 'Identificador (ID) do Histórico para Consulta no Banco',
-    destaque: true,
     adicionado: [
       'Exibição nítida do ID da tabela "historico" (#ID) em cada item da tela de Histórico de Alterações.',
       'Clique no ID para copiá-lo instantaneamente para a área de transferência.',

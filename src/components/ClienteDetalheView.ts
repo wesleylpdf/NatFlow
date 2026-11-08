@@ -16,6 +16,8 @@ import {
   excluirAcerto,
   alternarStatusAcerto,
   abaterAcertosComPagamento,
+  parseDescricaoParcela,
+  formatarDescricaoParcela,
 } from '@/services/acertos'
 import { carregarMapaMembros, obterPerfilAtual } from '@/services/equipe'
 import { obterSugestoesCatalogo } from '@/services/catalogo'
@@ -377,11 +379,24 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                   .join('')}
 
                 ${
-                  acertos.length > 1
+                  acertos.length > 0
                     ? `
-                    <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1 pt-1 font-semibold">
-                      <span>Total em Acertos: <strong class="text-slate-800 dark:text-slate-200">${formatarMoeda(totalAgendadoPendente + totalAgendadoPago)}</strong></span>
-                      <span>Pendente: <strong class="text-amber-600 dark:text-amber-400">${formatarMoeda(totalAgendadoPendente)}</strong></span>
+                    <div class="space-y-1 pt-1.5 border-t border-slate-200/60 dark:border-white/10">
+                      <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1 font-semibold">
+                        <span>Total em Acertos (${acertos.length}): <strong class="text-slate-800 dark:text-slate-200">${formatarMoeda(totalAgendadoPendente + totalAgendadoPago)}</strong></span>
+                        <span>Pendente: <strong class="text-amber-600 dark:text-amber-400">${formatarMoeda(totalAgendadoPendente)}</strong></span>
+                      </div>
+                      ${
+                        saldoDevedor > 0 && Math.abs(saldoDevedor - totalAgendadoPendente) >= 0.01
+                          ? saldoDevedor > totalAgendadoPendente
+                            ? `<div class="text-[11px] text-amber-700 dark:text-amber-300 font-bold px-1 flex items-center justify-between">
+                                 <span>⚠️ Restante do saldo: <strong>${formatarMoeda(saldoDevedor - totalAgendadoPendente)}</strong> ainda sem acerto</span>
+                               </div>`
+                            : `<div class="text-[11px] text-sky-700 dark:text-sky-300 font-bold px-1">
+                                 <span>ℹ️ Acertos somam <strong>+${formatarMoeda(totalAgendadoPendente - saldoDevedor)}</strong> a mais que o saldo devedor</span>
+                               </div>`
+                          : ''
+                      }
                     </div>
                   `
                     : ''
@@ -573,9 +588,14 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
               </div>
               <div id="parc-preview-lista" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
               
-              <div id="parc-rodape-total" class="flex items-center justify-between text-xs font-bold pt-2 border-t border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
-                <span>Soma: <strong id="parc-soma-atual" class="font-black text-slate-900 dark:text-white">R$ 0,00</strong></span>
-                <span id="parc-status-diferenca" class="text-[11px]"></span>
+              <div id="parc-rodape-total" class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs font-bold pt-2 border-t border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
+                <div class="flex items-center gap-2">
+                  <span>Soma: <strong id="parc-soma-atual" class="font-black text-slate-900 dark:text-white">R$ 0,00</strong></span>
+                  <span id="parc-status-diferenca" class="text-[11px]"></span>
+                </div>
+                <button type="button" id="btn-redistribuir-valores" class="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer text-left sm:text-right" title="Dividir o valor total igualmente entre as parcelas na tela">
+                  ⚖️ Redistribuir total igualmente
+                </button>
               </div>
             </div>
 
@@ -653,8 +673,9 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           return `
             <div class="item-parcela-linha p-2 rounded-xl bg-white dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600/80 space-y-1.5" data-idx="${i}">
               <div class="flex items-center justify-between gap-2">
-                <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300">#${i + 1}</span>
+                <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-300 numero-parcela-badge">#${i + 1}</span>
                 <input type="text" class="${cls.input} text-xs py-1 px-2 font-medium flex-1 min-w-0 input-parc-desc" value="${escaparHTML(descItem)}" placeholder="Descrição">
+                <button type="button" class="btn-remover-linha-preview text-slate-400 hover:text-rose-500 font-black text-xs px-1.5 py-0.5 rounded transition cursor-pointer" title="Remover esta parcela">✕</button>
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
@@ -676,6 +697,66 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
         atualizarSomaRodape()
       }
+
+      previewEl.addEventListener('click', e => {
+        const btnRemover = (e.target as HTMLElement).closest<HTMLButtonElement>('.btn-remover-linha-preview')
+        if (btnRemover) {
+          const linha = btnRemover.closest<HTMLElement>('.item-parcela-linha')
+          if (!linha) return
+
+          const linhasAtuais = previewEl.querySelectorAll<HTMLElement>('.item-parcela-linha')
+          if (linhasAtuais.length <= 1) {
+            toast.warning('O parcelamento deve conter pelo menos 1 parcela.')
+            return
+          }
+
+          linha.remove()
+
+          // Renumera as linhas que restaram
+          const linhasRestantes = previewEl.querySelectorAll<HTMLElement>('.item-parcela-linha')
+          const novoTotal = linhasRestantes.length
+          const descPref = inputDesc.value.trim()
+
+          linhasRestantes.forEach((l, idx) => {
+            const badge = l.querySelector('.numero-parcela-badge')
+            if (badge) badge.textContent = `#${idx + 1}`
+
+            const descInput = l.querySelector<HTMLInputElement>('.input-parc-desc')
+            if (descInput) {
+              const info = parseDescricaoParcela(descInput.value)
+              if (info) {
+                descInput.value = formatarDescricaoParcela(info.prefixo || descPref, info.temParenteses, idx + 1, novoTotal)
+              } else if (!descInput.value.trim() || descInput.value.startsWith('Parcela ')) {
+                descInput.value = descPref ? `${descPref} (${idx + 1}/${novoTotal})` : `Parcela ${idx + 1}/${novoTotal}`
+              }
+            }
+          })
+
+          atualizarSomaRodape()
+        }
+      })
+
+      overlay.querySelector('#btn-redistribuir-valores')?.addEventListener('click', () => {
+        const total = parseValor(inputTotal.value)
+        if (isNaN(total) || total <= 0) return
+
+        const linhasRestantes = previewEl.querySelectorAll<HTMLElement>('.item-parcela-linha')
+        const qtdRest = linhasRestantes.length
+        if (qtdRest === 0) return
+
+        const valorCentavos = Math.round(total * 100)
+        const baseCentavos = Math.floor(valorCentavos / qtdRest)
+        const restoCentavos = valorCentavos - baseCentavos * qtdRest
+
+        linhasRestantes.forEach((l, i) => {
+          const valItem = (i === 0 ? baseCentavos + restoCentavos : baseCentavos) / 100
+          const valInput = l.querySelector<HTMLInputElement>('.input-parc-valor')
+          if (valInput) valInput.value = valorParaInput(valItem)
+        })
+
+        atualizarSomaRodape()
+        toast.info(`Valor redistribuído em ${qtdRest} parcelas iguais.`)
+      })
 
       inputTotal.addEventListener('input', regenerarLinhas)
       selectQtd.addEventListener('change', regenerarLinhas)
