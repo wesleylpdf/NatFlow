@@ -10,10 +10,24 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.37',
+    data: '08/11/2026',
+    titulo: 'Modernização do Sistema: Aposentadoria da Coluna data_promessa',
+    destaque: true,
+    removido: [
+      'Remoção definitiva do campo legado "data_promessa" na tabela de clientes e no schema do banco.',
+      'Eliminação de métodos legados de sincronização no frontend.',
+      'Transição 100% concluída para a arquitetura moderna da tabela "acertos" (Cronograma de Acertos).'
+    ],
+    alterado: [
+      'Exportação de extratos PDF, mensagens de lembrete de cobrança via WhatsApp e backups em CSV agora utilizam nativamente os dados consolidados do Cronograma de Acertos.'
+    ]
+  },
+  {
     versao: 'v1.2.36',
     data: '08/11/2026',
     titulo: 'Quitação Direta de Parcelas no Cronograma de Acertos',
-    destaque: true,
+    destaque: false,
     adicionado: [
       'Ícone e botão direto de quitação (💰 Quitar) em cada card de parcela do Cronograma de Acertos.',
       'Modal de confirmação detalhado com aviso do que será feito (lançamento do pagamento, abatimento do saldo e exclusão/baixa da parcela).',

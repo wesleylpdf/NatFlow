@@ -120,7 +120,6 @@ CREATE TABLE IF NOT EXISTS public.clientes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome TEXT NOT NULL CHECK (char_length(btrim(nome)) > 0),
   telefone TEXT NOT NULL DEFAULT '',
-  data_promessa DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   criado_por TEXT,
   atualizado_por TEXT,
@@ -375,7 +374,6 @@ SELECT
   c.id,
   c.nome,
   c.telefone,
-  c.data_promessa,
   c.created_at,
   c.criado_por,
   c.atualizado_por,
@@ -437,5 +435,4 @@ ALTER TABLE public.autorizados ADD COLUMN IF NOT EXISTS chave_pix TEXT;
 ALTER TABLE public.autorizados ADD COLUMN IF NOT EXISTS beneficiario_pix TEXT;
 ALTER TABLE public.pagamentos ADD COLUMN IF NOT EXISTS forma_pagamento TEXT;
 ALTER TABLE public.historico ADD COLUMN IF NOT EXISTS cliente_nome TEXT;
-ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS data_promessa DATE;
 

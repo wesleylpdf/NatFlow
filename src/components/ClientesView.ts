@@ -381,7 +381,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     const totalAntigos = clientes.filter(c => c.saldo_devedor > 0 && (c.dias_atraso || 0) >= 30).length
     const totalEmDia = clientes.filter(c => c.saldo_devedor <= 0).length
     const totalPromessas = clientes.filter(c => {
-      const dataProm = c.data_promessa || c.proximo_acerto_data
+      const dataProm = c.proximo_acerto_data
       if (c.saldo_devedor <= 0 || !dataProm) return false
       const st = obterStatusPromessa(dataProm)?.status
       return st === 'vence_hoje' || st === 'vencida'
@@ -408,7 +408,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
     const filtrados = clientes.filter(c => {
       // Regra do filtro selecionável
       if (filtroStatus === 'promessas') {
-        const dataProm = c.data_promessa || c.proximo_acerto_data
+        const dataProm = c.proximo_acerto_data
         if (c.saldo_devedor <= 0 || !dataProm) return false
         const st = obterStatusPromessa(dataProm)?.status
         if (st !== 'vence_hoje' && st !== 'vencida') return false
@@ -456,7 +456,7 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
       .map(c => {
         const dias = c.dias_atraso || 0
         const temAtraso = c.saldo_devedor > 0 && dias >= 30
-        const dataPromessa = c.data_promessa || c.proximo_acerto_data
+        const dataPromessa = c.proximo_acerto_data
         const infoPromessa = c.saldo_devedor > 0 && dataPromessa ? obterStatusPromessa(dataPromessa) : null
 
         let subtituloAcerto = ''

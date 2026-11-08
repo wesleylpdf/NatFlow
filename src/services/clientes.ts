@@ -123,44 +123,23 @@ export async function listarClientesComSaldo(): Promise<ClienteComSaldo[]> {
         cli.proximo_acerto_data = pendentes[0].data
         cli.proximo_acerto_valor = pendentes[0].valor
         cli.qtd_acertos_pendentes = pendentes.length
-        if (!cli.data_promessa) cli.data_promessa = pendentes[0].data
-      } else if (cli.data_promessa && cli.saldo_devedor > 0) {
-        // Legado (promessa sem acerto cadastrado)
-        cli.proximo_acerto_data = cli.data_promessa
-        cli.proximo_acerto_valor = cli.saldo_devedor
-        cli.qtd_acertos_pendentes = 1
       }
     }
   } catch (err) {
     console.warn('[Clientes] Erro ao carregar acertos para lista:', err)
   }
 
-  // Preenche data de promessa do localStorage se não vier na view
-  for (const cli of lista) {
-    if (!cli.data_promessa && typeof localStorage !== 'undefined') {
-      const local = localStorage.getItem(`natflow_promessa_${cli.id}`)
-      if (local) cli.data_promessa = local
-    }
-  }
-
   return lista
 }
 
-/** Lista clientes (apenas id, nome, telefone, data_promessa) ordenados por nome. */
+/** Lista clientes ordenados por nome. */
 export async function listarClientes(): Promise<Cliente[]> {
   const { data, error } = await supabase
     .from('clientes')
     .select('*')
     .order('nome', { ascending: true })
   if (error) throw error
-  const lista = data as Cliente[]
-  for (const cli of lista) {
-    if (!cli.data_promessa && typeof localStorage !== 'undefined') {
-      const local = localStorage.getItem(`natflow_promessa_${cli.id}`)
-      if (local) cli.data_promessa = local
-    }
-  }
-  return lista
+  return (data as Cliente[]) || []
 }
 
 export async function criarCliente(dados: NovoCliente): Promise<Cliente> {
@@ -181,36 +160,8 @@ export async function atualizarCliente(id: string, dados: NovoCliente): Promise<
   if (error) throw error
 }
 
-/** Define ou remove a data de promessa de pagamento acordada com o cliente. */
-export async function definirDataPromessa(clienteId: string, dataPromessa: string | null): Promise<void> {
-  const promessaValida = dataPromessa && dataPromessa.trim() ? dataPromessa.trim() : null
-
-  if (typeof localStorage !== 'undefined') {
-    if (promessaValida) {
-      localStorage.setItem(`natflow_promessa_${clienteId}`, promessaValida)
-    } else {
-      localStorage.removeItem(`natflow_promessa_${clienteId}`)
-    }
-  }
-
-  try {
-    const { error } = await supabase
-      .from('clientes')
-      .update({ data_promessa: promessaValida })
-      .eq('id', clienteId)
-    if (error) {
-      console.warn('[Clientes] data_promessa mantida localmente (banco aguarda migration):', error.message)
-    }
-  } catch (err) {
-    console.warn('[Clientes] Exceção ao atualizar data_promessa no banco:', err)
-  }
-}
-
-/** Exclui o cliente e (em cascata) todas as compras e pagamentos dele. */
+/** Exclui o cliente e (em cascata) todas as compras, pagamentos e acertos dele. */
 export async function excluirCliente(id: string): Promise<void> {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem(`natflow_promessa_${id}`)
-  }
   const { error } = await supabase.from('clientes').delete().eq('id', id)
   if (error) throw error
 }

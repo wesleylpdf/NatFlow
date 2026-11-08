@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
 import type { Acerto, NovoAcerto, StatusAcerto } from '@/types'
-import { definirDataPromessa } from '@/services/clientes'
 
 const STORAGE_PREFIX = 'natflow_acertos_'
 
@@ -24,28 +23,6 @@ function salvarAcertosLocais(clienteId: string, acertos: Acerto[]): void {
   } catch {
     // storage opcional
   }
-}
-
-/**
- * Atualiza automaticamente a coluna data_promessa na tabela clientes
- * com base no próximo acerto pendente com a data mais próxima.
- */
-export async function sincronizarProximaPromessa(
-  clienteId: string,
-  acertosParam?: Acerto[]
-): Promise<string | null> {
-  const acertos = acertosParam || (await listarAcertos(clienteId))
-  const pendentes = acertos
-    .filter(a => a.status === 'pendente')
-    .sort((a, b) => a.data.localeCompare(b.data))
-
-  const proximaData = pendentes.length > 0 ? pendentes[0].data : null
-  try {
-    await definirDataPromessa(clienteId, proximaData)
-  } catch (err) {
-    console.warn('[Acertos] Erro ao sincronizar data_promessa:', err)
-  }
-  return proximaData
 }
 
 /**
@@ -105,7 +82,6 @@ export async function criarAcerto(dados: NovoAcerto): Promise<Acerto> {
         const locais = obterAcertosLocais(dados.cliente_id)
         locais.push(novo)
         salvarAcertosLocais(dados.cliente_id, locais)
-        await sincronizarProximaPromessa(dados.cliente_id, locais)
         return novo
       }
       throw error
@@ -115,7 +91,6 @@ export async function criarAcerto(dados: NovoAcerto): Promise<Acerto> {
     const locais = obterAcertosLocais(dados.cliente_id)
     locais.push(criado)
     salvarAcertosLocais(dados.cliente_id, locais)
-    await sincronizarProximaPromessa(dados.cliente_id)
     return criado
   } catch (err) {
     // Fallback local se rede falhar
@@ -127,7 +102,6 @@ export async function criarAcerto(dados: NovoAcerto): Promise<Acerto> {
     const locais = obterAcertosLocais(dados.cliente_id)
     locais.push(novo)
     salvarAcertosLocais(dados.cliente_id, locais)
-    await sincronizarProximaPromessa(dados.cliente_id, locais)
     return novo
   }
 }
@@ -163,7 +137,6 @@ export async function criarMultiplosAcertos(
         const locais = obterAcertosLocais(clienteId)
         locais.push(...criados)
         salvarAcertosLocais(clienteId, locais)
-        await sincronizarProximaPromessa(clienteId, locais)
         return criados
       }
       throw error
@@ -173,7 +146,6 @@ export async function criarMultiplosAcertos(
     const locais = obterAcertosLocais(clienteId)
     locais.push(...criados)
     salvarAcertosLocais(clienteId, locais)
-    await sincronizarProximaPromessa(clienteId)
     return criados
   } catch {
     const criados: Acerto[] = payloads.map((p, idx) => ({
@@ -184,7 +156,6 @@ export async function criarMultiplosAcertos(
     const locais = obterAcertosLocais(clienteId)
     locais.push(...criados)
     salvarAcertosLocais(clienteId, locais)
-    await sincronizarProximaPromessa(clienteId, locais)
     return criados
   }
 }
@@ -224,7 +195,6 @@ export async function atualizarAcerto(
     locais[idx] = { ...locais[idx], ...payload } as Acerto
     salvarAcertosLocais(clienteId, locais)
   }
-  await sincronizarProximaPromessa(clienteId, locais)
 }
 
 export interface InfoParcela {
@@ -362,8 +332,6 @@ export async function excluirAcerto(id: string, clienteId: string): Promise<void
 
   // Reajusta e renumera automaticamente as parcelas restantes (ex: de 1/3 e 2/3 passam a ser 1/2 e 2/2)
   await reajustarDescricoesParcelas(clienteId)
-
-  await sincronizarProximaPromessa(clienteId)
 }
 
 /**
@@ -410,10 +378,6 @@ export async function abaterAcertosComPagamento(
       // Se não cobrir a parcela inteira, para o abatimento
       break
     }
-  }
-
-  if (quitados.length > 0) {
-    await sincronizarProximaPromessa(clienteId)
   }
 
   return { acertosQuitados: quitados }

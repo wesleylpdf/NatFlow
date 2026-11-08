@@ -1,6 +1,6 @@
 import { abrirFormModal, confirmar, criarOverlay } from '@/components/Modal'
 import { abrirEdicaoCliente } from '@/components/ClientesView'
-import { definirDataPromessa, listarClientes } from '@/services/clientes'
+import { listarClientes } from '@/services/clientes'
 import { atualizarCompra, criarCompra, excluirCompra, listarCompras } from '@/services/compras'
 import {
   atualizarPagamento,
@@ -316,29 +316,11 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
         ${
           acertos.length === 0
-            ? c.data_promessa
-              ? (() => {
-                  const infoPromessa = obterStatusPromessa(c.data_promessa)
-                  return `
-                    <div class="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                      <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-xs font-black px-2.5 py-1 rounded-xl border ${infoPromessa?.corBadge || ''}">
-                          ${infoPromessa?.rotulo || `🗓️ Acerto: ${formatarData(c.data_promessa)}`}
-                        </span>
-                        <span class="text-[11px] text-slate-500 dark:text-slate-400">Data combinada</span>
-                      </div>
-                      <div class="flex items-center gap-1 shrink-0">
-                        <button id="btn-alterar-promessa-legada" class="${cls.btnIcone}" title="Alterar data combinada">✏️</button>
-                        <button id="btn-remover-promessa-legada" class="${cls.btnIcone}" title="Remover data combinada">✕</button>
-                      </div>
-                    </div>
-                  `
-                })()
-              : `
-                <div class="p-3 rounded-2xl bg-slate-50/70 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 text-center">
-                  <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Nenhum acerto agendado no momento. Use os botões acima para <strong>Parcelar Saldo</strong> ou agendar um <strong>Novo Acerto</strong>.</span>
-                </div>
-              `
+            ? `
+              <div class="p-3 rounded-2xl bg-slate-50/70 dark:bg-white/5 border border-dashed border-slate-200 dark:border-white/10 text-center">
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Nenhum acerto agendado no momento. Use os botões acima para <strong>Parcelar Saldo</strong> ou agendar um <strong>Novo Acerto</strong>.</span>
+              </div>
+            `
             : `
               <div class="space-y-1.5">
                 ${[...acertosPendentes, ...acertosPagos]
@@ -414,45 +396,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         }
       </div>
     `
-
-    function abrirModalPromessaLegada(): void {
-      abrirFormModal({
-        titulo: 'Combinar Data de Pagamento',
-        campos: [
-          {
-            nome: 'data_promessa',
-            label: 'Data prevista para pagamento',
-            tipo: 'date',
-            valor: c.data_promessa || hojeISO(),
-            obrigatorio: true,
-          },
-        ],
-        onSalvar: async valores => {
-          const novaData = validarData(valores.data_promessa)
-          await definirDataPromessa(c.id, novaData)
-          c.data_promessa = novaData
-          toast.success('Data de pagamento combinada com sucesso!')
-          await recarregarLancamentos()
-        },
-      })
-    }
-
-    async function removerPromessaLegada(): Promise<void> {
-      const ok = await confirmar({
-        titulo: 'Remover data de acerto',
-        mensagem: 'Deseja remover a data de pagamento combinada com este cliente?',
-        textoConfirmar: 'Remover',
-      })
-      if (!ok) return
-      try {
-        await definirDataPromessa(c.id, null)
-        c.data_promessa = null
-        toast.success('Data combinada removida.')
-        await recarregarLancamentos()
-      } catch (err) {
-        toast.error(mensagemErro(err, 'Erro ao remover data combinada'))
-      }
-    }
 
     function abrirModalNovoAcerto(): void {
       const { saldoDevedor } = calcularResumo(compras, pagamentos)
@@ -945,8 +888,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
     painelEl.querySelector('#btn-parcelar-saldo')?.addEventListener('click', abrirModalParcelamento)
     painelEl.querySelector('#btn-novo-acerto')?.addEventListener('click', abrirModalNovoAcerto)
-    painelEl.querySelector('#btn-alterar-promessa-legada')?.addEventListener('click', abrirModalPromessaLegada)
-    painelEl.querySelector('#btn-remover-promessa-legada')?.addEventListener('click', removerPromessaLegada)
 
     painelEl.querySelectorAll<HTMLElement>('[data-quitar-acerto]').forEach(btn => {
       btn.addEventListener('click', () => {

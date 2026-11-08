@@ -1,4 +1,4 @@
-import type { Cliente, Compra, Pagamento } from '@/types'
+import type { Cliente, ClienteComSaldo, Compra, Pagamento } from '@/types'
 import { formatarData, formatarDataHora, formatarMoeda, obterInfoFormaPagamento, escaparHTML } from '@/utils/format'
 import { calcularResumo } from '@/utils/saldo'
 import { toast } from '@/utils/toast'
@@ -544,7 +544,7 @@ export function abrirModalOpcoesExtrato(
  * Envia uma mensagem amigável e direta de lembrete de cobrança no WhatsApp com a chave PIX
  */
 export function enviarLembreteCobrancaWhatsApp(
-  cliente: Cliente,
+  cliente: Cliente | ClienteComSaldo,
   saldoDevedor: number,
   opcoes?: OpcoesPix
 ): void {
@@ -561,8 +561,9 @@ export function enviarLembreteCobrancaWhatsApp(
     `Passando para enviar o lembrete do seu saldo em aberto na Natura:\n\n` +
     `📌 Valor pendente: ${formatarBRL(saldoDevedor)}`
 
-  if (cliente.data_promessa) {
-    msg += `\n🗓️ Data combinada para acerto: ${formatarData(cliente.data_promessa)}`
+  const proximoAcerto = (cliente as ClienteComSaldo).proximo_acerto_data
+  if (proximoAcerto) {
+    msg += `\n🗓️ Data combinada para acerto: ${formatarData(proximoAcerto)}`
   }
 
   if (opcoes?.chavePix) {
@@ -585,7 +586,7 @@ export function enviarLembreteCobrancaWhatsApp(
  * forma de pagamento e saldo restante atualizado.
  */
 export function enviarReciboPagamentoWhatsApp(
-  cliente: Cliente,
+  cliente: Cliente | ClienteComSaldo,
   pagamento: Pagamento,
   saldoAtual: number,
   opcoes?: OpcoesPix
@@ -614,8 +615,9 @@ export function enviarReciboPagamentoWhatsApp(
     msg += `✅ Situação da Conta: 100% quitada! Muito obrigada! 🎉\n`
   } else {
     msg += `📌 Saldo Restante em Aberto: ${formatarBRL(saldoAtual)}\n`
-    if (cliente.data_promessa) {
-      msg += `🗓️ Próximo Vencimento / Acerto: ${formatarData(cliente.data_promessa)}\n`
+    const proximoAcerto = (cliente as ClienteComSaldo).proximo_acerto_data
+    if (proximoAcerto) {
+      msg += `🗓️ Próximo Vencimento / Acerto: ${formatarData(proximoAcerto)}\n`
     }
   }
 

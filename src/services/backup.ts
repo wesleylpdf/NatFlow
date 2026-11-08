@@ -82,7 +82,7 @@ export async function exportarBackupCompleto(): Promise<void> {
       limparCSV(formatarMoeda(c.total_pagamentos)),
       limparCSV(formatarMoeda(c.saldo_devedor)),
       limparCSV(c.saldo_devedor > 0 ? c.dias_atraso || 0 : 0),
-      limparCSV(c.data_promessa ? formatarData(c.data_promessa) : '-'),
+      limparCSV(c.proximo_acerto_data ? formatarData(c.proximo_acerto_data) : '-'),
       limparCSV(c.ultimo_pagamento ? formatarData(c.ultimo_pagamento) : '-'),
       limparCSV(c.created_at ? formatarDataHora(c.created_at) : '-'),
       limparCSV(c.criado_por || '-'),
