@@ -59,14 +59,6 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
           </div>
         </div>
 
-        ${
-          !souAdmin
-            ? `<div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-amber-700 dark:text-amber-300 font-semibold mb-4">
-                ℹ️ Você possui perfil de <strong>Membro</strong>. Você pode configurar sua chave PIX no botão acima. Apenas administradores adicionam novos membros.
-               </div>`
-            : ''
-        }
-
         <ul id="lista-equipe" class="space-y-2 mt-4"></ul>
       </section>
 

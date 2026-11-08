@@ -558,22 +558,22 @@ export function enviarLembreteCobrancaWhatsApp(
   const formatarBRL = (val: number): string => formatarMoeda(val).replace(/\u00A0/g, ' ')
 
   let msg =
-    `Olá, *${cliente.nome}*! Tudo bem? 🌸\n\n` +
-    `Passando para enviar o lembrete do seu saldo em aberto no *NatFlow*:\n\n` +
-    `📌 Valor pendente: *${formatarBRL(saldoDevedor)}*`
+    `Olá, ${cliente.nome}! Tudo bem? 🌸\n\n` +
+    `Passando para enviar o lembrete do seu saldo em aberto na Natura:\n\n` +
+    `📌 Valor pendente: ${formatarBRL(saldoDevedor)}`
 
   if (cliente.data_promessa) {
-    msg += `\n🗓️ Data combinada para acerto: *${formatarData(cliente.data_promessa)}*`
+    msg += `\n🗓️ Data combinada para acerto: ${formatarData(cliente.data_promessa)}`
   }
 
   if (opcoes?.chavePix) {
-    msg += `\n🔑 Chave PIX: *${opcoes.chavePix}*`
+    msg += `\n🔑 Chave PIX: ${opcoes.chavePix}`
     if (opcoes.nomeProfissional) {
       msg += ` (${opcoes.nomeProfissional})`
     }
   }
 
-  msg += `\n\nAssim que realizar o pagamento, me envie o comprovante por aqui, por favor! Qualquer dúvida, estou à disposição. Muito obrigado(a)! ✨`
+  msg += `\n\nAssim que realizar o pagamento, me envie o comprovante por aqui, por favor! Qualquer dúvida, estou à disposição. Muito obrigada! ✨`
 
   const textoMsg = encodeURIComponent(msg)
   const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
@@ -612,7 +612,7 @@ export function enviarReciboPagamentoWhatsApp(
   msg += `━━━━━━━━━━━━━━━━━━━━━\n`
 
   if (saldoAtual <= 0) {
-    msg += `✅ *Situação da Conta:* 100% quitada! Muito obrigado(a)! 🎉\n`
+    msg += `✅ *Situação da Conta:* 100% quitada! Muito obrigada! 🎉\n`
   } else {
     msg += `📌 *Saldo Restante em Aberto:* *${formatarBRL(saldoAtual)}*\n`
     if (cliente.data_promessa) {
@@ -627,7 +627,7 @@ export function enviarReciboPagamentoWhatsApp(
     }
   }
 
-  msg += `\n\nMuito obrigado(a) pela preferência! Ficamos à disposição. ✨`
+  msg += `\n\nMuito obrigada pela preferência! Ficamos à disposição. ✨`
 
   const textoMsg = encodeURIComponent(msg)
   const urlWhats = `https://api.whatsapp.com/send?phone=55${telLimpo}&text=${textoMsg}`
