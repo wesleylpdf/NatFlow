@@ -10,10 +10,20 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.43',
+    data: '08/11/2026',
+    titulo: 'Recomposição Precisa de Valor em Parcela Existente ao Excluir Pagamento',
+    destaque: true,
+    alterado: [
+      'Garantia de recomposição na parcela existente: ao excluir um pagamento, o valor é devolvido diretamente para a parcela ou acerto já existente que havia sido abatido, evitando criar novos acertos duplicados.',
+      'Identificação transparente no modal de exclusão mostrando exatamente qual parcela receberá o valor de volta e o valor resultante (ex: passará de R$ 30 para R$ 50).'
+    ]
+  },
+  {
     versao: 'v1.2.42',
     data: '08/11/2026',
     titulo: 'Restauração Inteligente de Parcelas ao Excluir Pagamento',
-    destaque: true,
+    destaque: false,
     adicionado: [
       'Janela interativa de confirmação ao excluir pagamento com opção "Restaurar valor no Cronograma de Acertos" (ativada por padrão).',
       'Restauração inteligente de valores parciais: o valor do pagamento excluído é somado de volta na parcela correspondente.',

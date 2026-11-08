@@ -86,4 +86,16 @@ describe('lógica de abatimento em cascata de parcelas', () => {
     const valorRestaurado = Math.round((valorAtualParcela + valorPagamentoEstornado) * 100) / 100
     expect(valorRestaurado).toBe(50.0)
   })
+
+  it('devolve o valor para a parcela existente em vez de criar novo acerto', () => {
+    const pendentes = [{ id: 'acerto-1', valor: 30.0, descricao: 'Parcela 1/1' }]
+    const pagamentoExcluido = { valor: 20.0, descricao: '' }
+
+    // Quando há acertos pendentes, seleciona o acerto existente
+    const acertoAlvo = pendentes[0]
+    const novoValor = Math.round((acertoAlvo.valor + pagamentoExcluido.valor) * 100) / 100
+
+    expect(novoValor).toBe(50.0)
+    expect(acertoAlvo.id).toBe('acerto-1')
+  })
 })

@@ -1799,6 +1799,35 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       function abrirModalExcluirPagamento(pag: Pagamento): void {
         const formaInfo = obterInfoFormaPagamento(pag.forma_pagamento)
 
+        // Localiza a parcela/acerto existente para onde o valor deve retornar
+        const descLimpa = pag.descricao?.trim() || ''
+        let acertoAlvo = descLimpa
+          ? acertosPendentes.find(a => a.descricao?.trim().toLowerCase() === descLimpa.toLowerCase())
+          : undefined
+
+        if (!acertoAlvo && descLimpa) {
+          const infoParcelaPag = parseDescricaoParcela(descLimpa)
+          if (infoParcelaPag) {
+            acertoAlvo = acertosPendentes.find(a => {
+              const infoA = parseDescricaoParcela(a.descricao)
+              return infoA && infoA.prefixo.toLowerCase() === infoParcelaPag.prefixo.toLowerCase()
+            })
+          }
+        }
+
+        // Se ainda não achou, mas há acertos pendentes, devolve para a parcela pendente existente
+        if (!acertoAlvo && acertosPendentes.length > 0) {
+          acertoAlvo = acertosPendentes[0]
+        }
+
+        const tituloOpcao = acertoAlvo
+          ? 'Devolver valor para a parcela existente (Recomendado)'
+          : 'Recriar parcela no Cronograma (Recomendado)'
+
+        const textoExplicativo = acertoAlvo
+          ? `Soma <strong>${formatarMoeda(pag.valor)}</strong> de volta no acerto <strong>"${escaparHTML(acertoAlvo.descricao || 'Acerto combinado')}"</strong>, que passará de <strong>${formatarMoeda(acertoAlvo.valor)}</strong> para <strong>${formatarMoeda(acertoAlvo.valor + pag.valor)}</strong>.`
+          : `Recria a parcela de <strong>${formatarMoeda(pag.valor)}</strong> no Cronograma para cobrir o saldo devedor que voltará a ficar em aberto.`
+
         const overlay = criarOverlay(`
           <div class="space-y-4">
             <div class="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -1848,10 +1877,10 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                 <input id="chk-restaurar-acerto" type="checkbox" checked class="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
                 <div class="min-w-0">
                   <span class="text-xs font-black text-slate-900 dark:text-white block">
-                    Restaurar valor no Cronograma de Acertos (Recomendado)
+                    ${tituloOpcao}
                   </span>
                   <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-tight mt-0.5">
-                    Devolve <strong>${formatarMoeda(pag.valor)}</strong> para a parcela abatida ou recria o agendamento no Cronograma, mantendo as contas e parcelamentos sincronizados.
+                    ${textoExplicativo}
                   </p>
                 </div>
               </label>
@@ -1899,7 +1928,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
             // 2. Se a opção estiver marcada, restaura ou recria a parcela no Cronograma
             if (deveRestaurar) {
-              const res = await restaurarAcertoDePagamentoExcluido(clienteId, pag)
+              const res = await restaurarAcertoDePagamentoExcluido(clienteId, pag, acertoAlvo?.id)
               if (res.acertoAtualizado) {
                 toast.success(
                   `Pagamento excluído e parcela restaurada para ${formatarMoeda(res.acertoAtualizado.valor)} no Cronograma! 🎉`

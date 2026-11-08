@@ -422,36 +422,62 @@ export async function limparAcertosPendentes(clienteId: string): Promise<void> {
 
 /**
  * Restaura ou recompõe o valor de um pagamento excluído no Cronograma de Acertos do cliente:
- * 1. Se a descrição do pagamento coincide com uma parcela existente (ex: foi um abatimento parcial),
- *    soma o valor de volta nessa parcela.
- * 2. Se a parcela havia sido excluída/baixada por completo, recria o acerto com a data e valor
- *    do pagamento e renumera todas as parcelas restantes.
- * 3. Se o cronograma estiver vazio, recria o acerto para cobrir a reabertura do saldo devedor.
+ * 1. Se houver um acerto pendente (por ID, descrição correspondente ou o primeiro existente),
+ *    soma o valor de volta nessa parcela/acerto já existente, evitando criar duplicatas.
+ * 2. Se e somente se o cronograma estiver completamente vazio (todas as parcelas haviam sido quitadas/excluídas),
+ *    recria o acerto com a data e valor do pagamento para cobrir a reabertura da dívida.
  */
 export async function restaurarAcertoDePagamentoExcluido(
   clienteId: string,
-  pagamento: { valor: number; data: string; descricao?: string | null }
+  pagamento: { valor: number; data: string; descricao?: string | null },
+  acertoIdAlvo?: string
 ): Promise<{ acertoAtualizado?: Acerto; acertoCriado?: Acerto }> {
   if (pagamento.valor <= 0) return {}
 
   const acertos = await listarAcertos(clienteId)
-  const pendentes = acertos.filter(a => a.status === 'pendente')
+  const pendentes = acertos
+    .filter(a => a.status === 'pendente')
+    .sort((a, b) => a.data.localeCompare(b.data))
+
   const descLimpa = pagamento.descricao?.trim() || ''
 
-  // 1. Caso a descrição do pagamento coincida com um acerto pendente existente (cenário de abatimento parcial)
-  if (descLimpa) {
-    const acertoMesmaDescricao = pendentes.find(
+  // 1. Tenta identificar a parcela/acerto alvo onde o valor deve retornar:
+  // 1a. Se foi passado acertoIdAlvo explicitamente
+  let acertoAlvo = acertoIdAlvo ? pendentes.find(a => a.id === acertoIdAlvo) : undefined
+
+  // 1b. Se não encontrou por ID, tenta por descrição idêntica
+  if (!acertoAlvo && descLimpa) {
+    acertoAlvo = pendentes.find(
       a => a.descricao?.trim().toLowerCase() === descLimpa.toLowerCase()
     )
-    if (acertoMesmaDescricao) {
-      const novoValor = Math.round((acertoMesmaDescricao.valor + pagamento.valor) * 100) / 100
-      await atualizarAcerto(acertoMesmaDescricao.id, clienteId, { valor: novoValor })
-      await reajustarDescricoesParcelas(clienteId)
-      return { acertoAtualizado: { ...acertoMesmaDescricao, valor: novoValor } }
+  }
+
+  // 1c. Se for parcela (ex: "Parcela 1/2"), tenta por prefixo
+  if (!acertoAlvo && descLimpa) {
+    const infoParcelaPag = parseDescricaoParcela(descLimpa)
+    if (infoParcelaPag) {
+      acertoAlvo = pendentes.find(a => {
+        const infoA = parseDescricaoParcela(a.descricao)
+        return infoA && infoA.prefixo.toLowerCase() === infoParcelaPag.prefixo.toLowerCase()
+      })
     }
   }
 
-  // 2. Se a parcela havia sido completamente quitada e excluída, recria o acerto
+  // 1d. Se ainda não identificou, mas EXISTEM acertos pendentes:
+  // Devolve o valor diretamente para a primeira parcela pendente existente (evita criar novo acerto duplicado)
+  if (!acertoAlvo && pendentes.length > 0) {
+    acertoAlvo = pendentes[0]
+  }
+
+  // Se encontrou uma parcela/acerto existente, devolve o valor para ela
+  if (acertoAlvo) {
+    const novoValor = Math.round((acertoAlvo.valor + pagamento.valor) * 100) / 100
+    await atualizarAcerto(acertoAlvo.id, clienteId, { valor: novoValor })
+    await reajustarDescricoesParcelas(clienteId)
+    return { acertoAtualizado: { ...acertoAlvo, valor: novoValor } }
+  }
+
+  // 2. Se e somente se o cronograma estiver completamente vazio, recria o acerto
   const descParaCriar = descLimpa || 'Acerto restaurado'
   const novoAcerto = await criarAcerto({
     cliente_id: clienteId,
@@ -460,7 +486,6 @@ export async function restaurarAcertoDePagamentoExcluido(
     descricao: descParaCriar,
   })
 
-  // Renumera as parcelas caso faça parte de um parcelamento
   await reajustarDescricoesParcelas(clienteId)
 
   return { acertoCriado: novoAcerto }
