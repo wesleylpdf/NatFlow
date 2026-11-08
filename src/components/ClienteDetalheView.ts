@@ -356,7 +356,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                           : 'bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
                       }">
                         <div class="flex items-center gap-2.5 min-w-0">
-                          <button type="button" data-alternar-acerto="${a.id}" class="text-base shrink-0 hover:scale-125 transition active:scale-95" title="${pago ? 'Clique para reabrir este acerto' : 'Clique para marcar como quitado'}">
+                          <button type="button" ${pago ? `data-alternar-acerto="${a.id}"` : `data-quitar-acerto="${a.id}"`} class="text-base shrink-0 hover:scale-125 transition active:scale-95 cursor-pointer" title="${pago ? 'Clique para reabrir este acerto' : 'Clique para quitar esta parcela'}">
                             ${pago ? '✅' : '⭕'}
                           </button>
                           <div class="min-w-0">
@@ -370,6 +370,14 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                           </div>
                         </div>
                         <div class="flex items-center gap-1 shrink-0">
+                          ${
+                            !pago
+                              ? `<button type="button" data-quitar-acerto="${a.id}" class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Quitar este acerto e registrar pagamento">
+                                  <span>💰</span>
+                                  <span>Quitar</span>
+                                </button>`
+                              : ''
+                          }
                           <button data-editar-acerto="${a.id}" class="${cls.btnIcone} text-xs" title="Editar acerto">✏️</button>
                           <button data-excluir-acerto="${a.id}" class="${cls.btnIcone} text-xs text-rose-500 hover:text-rose-600" title="Excluir acerto">🗑️</button>
                         </div>
@@ -810,23 +818,159 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       })
     }
 
+    function abrirModalQuitacaoAcerto(acerto: Acerto): void {
+      const overlay = criarOverlay(`
+        <div class="space-y-3.5 max-w-md mx-auto">
+          <div class="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-lg shrink-0">
+                💰
+              </div>
+              <div>
+                <h3 class="text-base font-black text-slate-900 dark:text-white leading-tight">
+                  Quitar Parcela / Acerto
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Confirmar recebimento e dar baixa no cronograma.
+                </p>
+              </div>
+            </div>
+            <button type="button" data-fechar class="${cls.btnIcone} text-lg shrink-0" title="Fechar">✕</button>
+          </div>
+
+          <!-- Resumo da parcela -->
+          <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-2">
+            <div>
+              <span class="block text-[10px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                ${escaparHTML(acerto.descricao || 'Acerto combinado')}
+              </span>
+              <span class="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                Vencimento: <strong>${formatarData(acerto.data)}</strong>
+              </span>
+            </div>
+            <span class="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400">
+              ${formatarMoeda(acerto.valor)}
+            </span>
+          </div>
+
+          <!-- Aviso do que será feito -->
+          <div class="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 space-y-2 text-xs text-slate-700 dark:text-slate-200">
+            <div class="font-black text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+              <span>📋</span>
+              <span>O que será feito ao confirmar:</span>
+            </div>
+            <ul class="space-y-1.5 pl-1 text-[11px] sm:text-xs">
+              <li class="flex items-start gap-1.5">
+                <span class="text-emerald-600 font-black shrink-0">✓</span>
+                <span>Lança um <strong>pagamento de ${formatarMoeda(acerto.valor)}</strong> no histórico financeiro de <strong>${escaparHTML(c.nome)}</strong>.</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-emerald-600 font-black shrink-0">✓</span>
+                <span>O saldo devedor do cliente será <strong>abatido em ${formatarMoeda(acerto.valor)}</strong>.</span>
+              </li>
+              <li class="flex items-start gap-1.5">
+                <span class="text-emerald-600 font-black shrink-0">✓</span>
+                <span>Esta parcela será <strong>baixada e removida</strong> do Cronograma de Acertos.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Forma de Pagamento -->
+          <div class="space-y-1">
+            <label class="${cls.label}" for="forma-quitacao-acerto">Forma de recebimento</label>
+            <select id="forma-quitacao-acerto" class="${cls.input} font-bold text-xs py-2">
+              <option value="pix" selected>💠 PIX</option>
+              <option value="dinheiro">💵 Dinheiro</option>
+              <option value="credito">💳 Cartão de Crédito</option>
+              <option value="debito">💳 Cartão de Débito</option>
+              <option value="outro">🏷️ Outro</option>
+            </select>
+          </div>
+
+          <!-- Botões de Ação: Cancelar e Confirmar -->
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <button type="button" data-fechar class="${cls.btnSecundario} text-xs py-2 px-3">
+              Cancelar
+            </button>
+            <button type="button" id="btn-confirmar-quitacao" class="${cls.btnPrimario} text-xs py-2 px-4 flex items-center gap-1.5 cursor-pointer">
+              <span>✓</span>
+              <span>Confirmar Quitação</span>
+            </button>
+          </div>
+        </div>
+      `)
+
+      const fechar = (): void => overlay.remove()
+      overlay.querySelectorAll('[data-fechar]').forEach(btn => btn.addEventListener('click', fechar))
+
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay) fechar()
+      })
+
+      const onKey = (e: KeyboardEvent): void => {
+        if (e.key === 'Escape') {
+          fechar()
+          document.removeEventListener('keydown', onKey)
+        }
+      }
+      document.addEventListener('keydown', onKey)
+
+      const btnConfirmar = overlay.querySelector<HTMLButtonElement>('#btn-confirmar-quitacao')!
+      const formaSelect = overlay.querySelector<HTMLSelectElement>('#forma-quitacao-acerto')!
+
+      btnConfirmar.addEventListener('click', async () => {
+        btnConfirmar.disabled = true
+        btnConfirmar.textContent = 'Quitando...'
+        try {
+          await criarPagamento({
+            cliente_id: clienteId,
+            valor: acerto.valor,
+            data: hojeISO(),
+            descricao: acerto.descricao || 'Quitação de parcela',
+            forma_pagamento: formaSelect.value,
+          })
+
+          await excluirAcerto(acerto.id, clienteId)
+
+          toast.success(`Parcela de ${formatarMoeda(acerto.valor)} quitada com sucesso! 🎉`)
+          fechar()
+          await recarregarLancamentos()
+        } catch (err) {
+          toast.error(mensagemErro(err, 'Erro ao quitar parcela'))
+          btnConfirmar.disabled = false
+          btnConfirmar.textContent = 'Confirmar Quitação'
+        }
+      })
+    }
+
     painelEl.querySelector('#btn-parcelar-saldo')?.addEventListener('click', abrirModalParcelamento)
     painelEl.querySelector('#btn-novo-acerto')?.addEventListener('click', abrirModalNovoAcerto)
     painelEl.querySelector('#btn-alterar-promessa-legada')?.addEventListener('click', abrirModalPromessaLegada)
     painelEl.querySelector('#btn-remover-promessa-legada')?.addEventListener('click', removerPromessaLegada)
+
+    painelEl.querySelectorAll<HTMLElement>('[data-quitar-acerto]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.quitarAcerto!
+        const acerto = acertos.find(a => a.id === id)
+        if (acerto) abrirModalQuitacaoAcerto(acerto)
+      })
+    })
 
     painelEl.querySelectorAll<HTMLElement>('[data-alternar-acerto]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.alternarAcerto!
         const acerto = acertos.find(a => a.id === id)
         if (!acerto) return
-        const novoStatus = acerto.status !== 'pago'
+        if (acerto.status === 'pendente') {
+          abrirModalQuitacaoAcerto(acerto)
+          return
+        }
         try {
-          await alternarStatusAcerto(id, clienteId, novoStatus)
-          toast.success(novoStatus ? 'Acerto marcado como quitado! 🎉' : 'Acerto reaberto como pendente.')
+          await alternarStatusAcerto(id, clienteId, false)
+          toast.info('Acerto reaberto como pendente.')
           await recarregarLancamentos()
         } catch (err) {
-          toast.error(mensagemErro(err, 'Erro ao atualizar acerto'))
+          toast.error(mensagemErro(err, 'Erro ao reabrir acerto'))
         }
       })
     })

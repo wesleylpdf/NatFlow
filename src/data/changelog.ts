@@ -10,10 +10,20 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.36',
+    data: '08/11/2026',
+    titulo: 'Quitação Direta de Parcelas no Cronograma de Acertos',
+    destaque: true,
+    adicionado: [
+      'Ícone e botão direto de quitação (💰 Quitar) em cada card de parcela do Cronograma de Acertos.',
+      'Modal de confirmação detalhado com aviso do que será feito (lançamento do pagamento, abatimento do saldo e exclusão/baixa da parcela).',
+      'Opção para selecionar a forma de pagamento (PIX, Dinheiro, Cartão) e botões de Confirmar ou Cancelar.'
+    ]
+  },
+  {
     versao: 'v1.2.35',
     data: '08/11/2026',
     titulo: 'Atalhos Rápidos de Parcelas em Pagamentos e Baixa Automática',
-    destaque: true,
     adicionado: [
       'Botões de atalho individuais para cada parcela ou acerto pendente cadastrado no formulário de Pagamentos.',
       'Preenchimento instantâneo de valor e descrição ao clicar no atalho da parcela correspondente.',
