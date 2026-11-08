@@ -422,8 +422,8 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     const autor = extrairPrimeiroNome(opts.criado_por, mapaMembros)
     const editor = opts.atualizado_por ? extrairPrimeiroNome(opts.atualizado_por, mapaMembros) : null
     const textoAutoria = editor
-      ? `data ${formatarData(opts.data)}, Por ${autor} e Edit Por ${editor}`
-      : `data ${formatarData(opts.data)}, Por ${autor}`
+      ? `${formatarData(opts.data)}, Por ${autor} e Edit Por ${editor}`
+      : `${formatarData(opts.data)}, Por ${autor}`
 
     return `
       <li class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-2.5 sm:px-3 sm:py-2.5 transition">
