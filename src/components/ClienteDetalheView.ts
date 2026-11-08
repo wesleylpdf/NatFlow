@@ -1358,6 +1358,9 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
   // ---------- Aba: Pagamentos (entradas) com Forma de Pagamento ----------
   function renderAbaPagamentos(): void {
     const { saldoDevedor } = calcularResumo(compras, pagamentos)
+    const acertosPendentes = acertos
+      .filter(a => a.status === 'pendente')
+      .sort((a, b) => a.data.localeCompare(b.data))
 
     abaEl.innerHTML = `
       <form id="form-pagamento" novalidate class="grid grid-cols-2 sm:grid-cols-[1.2fr_1.3fr_1.1fr_1.8fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
@@ -1387,21 +1390,28 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           <button type="submit" class="${cls.btnPrimario} w-full">Lançar</button>
         </div>
         ${
-          saldoDevedor > 0
+          saldoDevedor > 0 || acertosPendentes.length > 0
             ? `
-            <div class="col-span-2 sm:col-span-5 flex items-center gap-1.5 sm:gap-2 flex-nowrap whitespace-nowrap min-w-0 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
-              <button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap">
-                <span>⚡ Quitar Saldo (${formatarMoeda(saldoDevedor)})</span>
-              </button>
+            <div class="col-span-2 sm:col-span-5 flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
+              <span class="text-[10px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400 shrink-0">Atalhos:</span>
               ${
-                saldoDevedor >= 10
-                  ? `
-                  <button type="button" id="btn-quitar-metade" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition active:scale-95 shrink-0 whitespace-nowrap">
-                    50% (${formatarMoeda(Math.round((saldoDevedor / 2) * 100) / 100)})
-                  </button>
-                  `
+                saldoDevedor > 0
+                  ? `<button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer" title="Preencher com o saldo total">
+                      <span>⚡ Quitar Saldo (${formatarMoeda(saldoDevedor)})</span>
+                    </button>`
                   : ''
               }
+              ${acertosPendentes
+                .map(a => {
+                  const titulo = a.descricao || 'Acerto'
+                  return `
+                    <button type="button" data-preencher-acerto-id="${a.id}" data-valor="${a.valor}" data-desc="${escaparHTML(titulo)}" class="btn-atalho-acerto text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer" title="Preencher com ${escaparHTML(titulo)} (${formatarMoeda(a.valor)}) e excluir do Cronograma ao lançar">
+                      <span>🗓️</span>
+                      <span>${escaparHTML(titulo)} (${formatarMoeda(a.valor)})</span>
+                    </button>
+                  `
+                })
+                .join('')}
             </div>
             `
             : ''
@@ -1477,6 +1487,46 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     const dataInput = abaEl.querySelector<HTMLInputElement>('#pagamento-data')!
     const descInput = abaEl.querySelector<HTMLInputElement>('#pagamento-descricao')!
 
+    let acertoSelecionadoId: string | null = null
+
+    const botoesAcerto = abaEl.querySelectorAll<HTMLButtonElement>('.btn-atalho-acerto')
+    function limparSelecaoAcertos(): void {
+      botoesAcerto.forEach(b => b.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-500/30'))
+    }
+
+    abaEl.querySelector('#btn-quitar-total')?.addEventListener('click', () => {
+      valorInput.value = valorParaInput(saldoDevedor)
+      descInput.value = 'Quitação de saldo'
+      acertoSelecionadoId = null
+      limparSelecaoAcertos()
+    })
+
+    botoesAcerto.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.preencherAcertoId
+        const val = btn.dataset.valor
+        const desc = btn.dataset.desc
+        if (id && val) {
+          acertoSelecionadoId = id
+          valorInput.value = valorParaInput(Number(val))
+          descInput.value = desc || ''
+          limparSelecaoAcertos()
+          btn.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-500/30')
+        }
+      })
+    })
+
+    valorInput.addEventListener('input', () => {
+      if (acertoSelecionadoId) {
+        const v = parseValor(valorInput.value)
+        const acertoAtual = acertosPendentes.find(a => a.id === acertoSelecionadoId)
+        if (acertoAtual && Math.abs(acertoAtual.valor - v) > 0.01) {
+          acertoSelecionadoId = null
+          limparSelecaoAcertos()
+        }
+      }
+    })
+
     form.addEventListener('submit', async e => {
       e.preventDefault()
       const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
@@ -1492,13 +1542,39 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           descricao: descInput.value,
           forma_pagamento,
         })
-        const { acertosQuitados } = await abaterAcertosComPagamento(clienteId, valor)
-        if (acertosQuitados.length > 0) {
-          toast.success(`Pagamento lançado e ${acertosQuitados.length} acerto(s) quitado(s) automaticamente! 🎉`)
-        } else {
-          toast.success('Pagamento lançado com sucesso!')
+
+        // Identifica se há acerto correspondente para excluir
+        let acertoParaExcluir = acertoSelecionadoId
+        if (!acertoParaExcluir) {
+          const matchAcerto = acertosPendentes.find(
+            a =>
+              Math.abs(a.valor - valor) < 0.01 &&
+              a.descricao?.trim().toLowerCase() === descInput.value.trim().toLowerCase()
+          )
+          if (matchAcerto) {
+            acertoParaExcluir = matchAcerto.id
+          }
         }
+
+        if (acertoParaExcluir) {
+          // Exclui automaticamente o correspondente no Cronograma de Acertos e renumera restantes
+          await excluirAcerto(acertoParaExcluir, clienteId)
+          toast.success(
+            `Pagamento lançado e ${descInput.value ? `"${descInput.value}"` : 'parcela'} baixada do Cronograma! 🎉`
+          )
+        } else {
+          // Se não vinculou a um acerto específico, abate acertos pendentes mais antigos
+          const { acertosQuitados } = await abaterAcertosComPagamento(clienteId, valor)
+          if (acertosQuitados.length > 0) {
+            toast.success(`Pagamento lançado e ${acertosQuitados.length} acerto(s) quitado(s) automaticamente! 🎉`)
+          } else {
+            toast.success('Pagamento lançado com sucesso!')
+          }
+        }
+
         form.reset()
+        acertoSelecionadoId = null
+        limparSelecaoAcertos()
         dataInput.value = hojeISO()
         formaSelect.value = 'pix'
         await recarregarLancamentos()
@@ -1507,14 +1583,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       } finally {
         btn.disabled = false
       }
-    })
-
-    abaEl.querySelector('#btn-quitar-total')?.addEventListener('click', () => {
-      valorInput.value = valorParaInput(saldoDevedor)
-    })
-
-    abaEl.querySelector('#btn-quitar-metade')?.addEventListener('click', () => {
-      valorInput.value = valorParaInput(Math.round((saldoDevedor / 2) * 100) / 100)
     })
 
     abaEl.querySelector('#lista-pagamentos')!.addEventListener('click', async e => {

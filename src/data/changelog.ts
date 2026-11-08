@@ -10,10 +10,23 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.35',
+    data: '08/11/2026',
+    titulo: 'Atalhos Rápidos de Parcelas em Pagamentos e Baixa Automática',
+    destaque: true,
+    adicionado: [
+      'Botões de atalho individuais para cada parcela ou acerto pendente cadastrado no formulário de Pagamentos.',
+      'Preenchimento instantâneo de valor e descrição ao clicar no atalho da parcela correspondente.',
+      'Baixa automática inteligente: ao lançar o pagamento, a parcela é excluída do Cronograma e as parcelas restantes são renumeradas automaticamente.'
+    ],
+    removido: [
+      'Botão "50%" removido do formulário de pagamento para dar lugar aos atalhos das parcelas reais.'
+    ]
+  },
+  {
     versao: 'v1.2.34',
     data: '08/11/2026',
     titulo: 'Correção e Sincronização Dinâmica do Parcelamento de Acertos',
-    destaque: true,
     alterado: [
       'Renumeração inteligente de parcelas: ao excluir qualquer parcela, as restantes são atualizadas automaticamente (ex: de 1/3 e 2/3 passam a ser 1/2 e 2/2).',
       'Remoção de parcelas individuais no próprio modal de parcelamento com botão ✕ e renumeração em tempo real.',
