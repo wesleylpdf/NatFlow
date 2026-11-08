@@ -46,14 +46,9 @@ export async function bump(tipo) {
   if (tipo === 'grande' || tipo === 'major') {
     proximo = { major, minor: minor + 1, patch: 0 }
   } else if (tipo === 'build' || tipo === 'auto') {
-    // Se a versão atual ainda não foi gerada no dist, preserva para este build
-    const indexVersaoPath = resolve(ROOT, 'dist', `index-${pkg.version}.html`)
-    if (!existsSync(indexVersaoPath)) {
-      console.log(`[NatFlow] Versão mantida para build atual: ${pkg.version}`)
-      return
-    }
-    // Caso padrão em build local repetido: incrementa versão pequena (patch)
-    proximo = { major, minor, patch: patch + 1 }
+    // Em build, preserva a versão atual configurada no package.json
+    console.log(`[NatFlow] Versão mantida para build: ${pkg.version}`)
+    return
   } else {
     // pequena / patch
     proximo = { major, minor, patch: patch + 1 }

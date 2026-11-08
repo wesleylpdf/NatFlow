@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import { copyFileSync, writeFileSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { CHANGELOG } from './src/data/changelog'
 
 const raizProjeto = dirname(fileURLToPath(import.meta.url))
 
@@ -37,7 +38,15 @@ function versionamentoPlugin() {
       // 1. version.json
       writeFileSync(
         resolve(distDir, 'version.json'),
-        JSON.stringify({ version: BUILD_VERSION, builtAt: new Date().toISOString() }, null, 2)
+        JSON.stringify(
+          {
+            version: BUILD_VERSION,
+            builtAt: new Date().toISOString(),
+            changelog: CHANGELOG,
+          },
+          null,
+          2
+        )
       )
 
       // 2. index-<versao>.html para contornar cache antigo

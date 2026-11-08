@@ -10,10 +10,21 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.41',
+    data: '08/11/2026',
+    titulo: 'Visualização de Novidades Antes de Atualizar',
+    destaque: true,
+    adicionado: [
+      'Visualização imediata das novidades: ao clicar em "Novidades" na notificação de atualização, o histórico agora puxa em tempo real o que mudou na nova versão antes de recarregar.',
+      'Destaque no modal indicando a nova versão disponível no servidor e a versão atualmente instalada na aba.',
+      'Botão "Instalar Agora" direto dentro do card da nova versão no modal de novidades.'
+    ]
+  },
+  {
     versao: 'v1.2.39',
     data: '08/11/2026',
     titulo: 'Abatimento Inteligente em Cascata e Parcial de Parcelas',
-    destaque: true,
+    destaque: false,
     adicionado: [
       'Abatimento parcial inteligente: pagamentos avulsos menores que o acerto agora abatem diretamente o valor da parcela (ex: de R$ 50 para R$ 20), mantendo a data combinada.',
       'Abatimento em cascata cronológica: pagamentos avulsos que cobrem uma ou mais parcelas baixam as quitadas do Cronograma e reduzem a próxima pelo valor excedente.',

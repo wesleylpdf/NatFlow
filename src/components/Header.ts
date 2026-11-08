@@ -6,7 +6,12 @@ import { escaparHTML } from '@/utils/format'
 import { toast, mensagemErro } from '@/utils/toast'
 import { cls, sincronizarBarraSistema } from '@/utils/ui'
 import { acionarInstalacaoPWA, onDisponibilidadeInstalacao } from '@/utils/pwaInstall'
-import { verificarAtualizacaoManual } from '@/utils/atualizacao'
+import {
+  verificarAtualizacaoManual,
+  obterDadosUltimaVersaoPublicada,
+  recarregarIgnorandoCache,
+  type InfoVersaoPublicada,
+} from '@/utils/atualizacao'
 
 const CHAVE_TEMA = 'natflow_tema'
 
@@ -91,96 +96,137 @@ export function abrirModalMeuPerfil(aoSalvar?: () => void): void {
 
 /**
  * Abre o modal interativo com o histórico de novidades, alterações e remoções (Changelog).
+ * Caso haja novidades publicadas no servidor mais recentes que a versão desta aba, elas
+ * são exibidas com destaque e botão de atualização imediata antes do reload.
  */
-export function abrirModalChangelog(): void {
-  const versoesHTML = CHANGELOG.map((item, idx) => {
-    const versaoItemNum = item.versao.replace(/^v/i, '')
-    const ehMaisRecente = versaoItemNum === __BUILD_VERSION__ || idx === 0
-    const rotuloVersao = ehMaisRecente ? `v${__BUILD_VERSION__}` : item.versao
-    const badgeVersao = ehMaisRecente
-      ? `<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black tracking-wide shrink-0">Atual • ${escaparHTML(rotuloVersao)}</span>`
-      : `<span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold shrink-0">${escaparHTML(item.versao)}</span>`
+export function abrirModalChangelog(dadosServidor?: InfoVersaoPublicada | null): void {
+  const infoServidor = dadosServidor || obterDadosUltimaVersaoPublicada()
 
-    const secaoAdicionado =
-      item.adicionado && item.adicionado.length > 0
-        ? `
-        <div class="space-y-1">
-          <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            <span>✨</span><span>Novidades</span>
+  let listaItens = [...CHANGELOG]
+  if (infoServidor?.changelog && Array.isArray(infoServidor.changelog)) {
+    const versoesLocais = new Set(listaItens.map(i => i.versao.replace(/^v/i, '')))
+    const itensNovos = infoServidor.changelog.filter(i => !versoesLocais.has(i.versao.replace(/^v/i, '')))
+    if (itensNovos.length > 0) {
+      listaItens = [...itensNovos, ...listaItens]
+    }
+  }
+
+  const versaoServidorNum = infoServidor?.version || null
+  const temNovaVersaoServidor = Boolean(
+    versaoServidorNum && versaoServidorNum !== __BUILD_VERSION__
+  )
+
+  const versoesHTML = listaItens
+    .map(item => {
+      const versaoItemNum = item.versao.replace(/^v/i, '')
+      const ehNovaVersaoServidor = temNovaVersaoServidor && versaoItemNum === versaoServidorNum
+      const ehVersaoAtualInstalada = versaoItemNum === __BUILD_VERSION__
+
+      let badgeVersao = ''
+      if (ehNovaVersaoServidor) {
+        badgeVersao = `
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 font-black tracking-wide shrink-0 animate-pulse flex items-center gap-1 shadow-sm">
+              <span>✨</span> Nova Versão Disponível • v${escaparHTML(versaoServidorNum!)}
+            </span>
+            <button type="button" id="btn-atualizar-pelo-modal" class="text-[11px] font-black px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-sm transition flex items-center gap-1 cursor-pointer">
+              <span>🔄</span> Instalar Agora
+            </button>
           </div>
-          <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
-            ${item.adicionado
-              .map(
-                texto =>
-                  `<li class="flex items-start gap-1.5"><span class="text-emerald-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
-              )
-              .join('')}
-          </ul>
+        `
+      } else if (ehVersaoAtualInstalada) {
+        badgeVersao = `<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black tracking-wide shrink-0">Instalada nesta aba • v${__BUILD_VERSION__}</span>`
+      } else {
+        badgeVersao = `<span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold shrink-0">${escaparHTML(item.versao)}</span>`
+      }
+
+      const secaoAdicionado =
+        item.adicionado && item.adicionado.length > 0
+          ? `
+          <div class="space-y-1">
+            <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <span>✨</span><span>Novidades</span>
+            </div>
+            <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
+              ${item.adicionado
+                .map(
+                  texto =>
+                    `<li class="flex items-start gap-1.5"><span class="text-emerald-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
+                )
+                .join('')}
+            </ul>
+          </div>
+        `
+          : ''
+
+      const secaoAlterado =
+        item.alterado && item.alterado.length > 0
+          ? `
+          <div class="space-y-1">
+            <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
+              <span>🔄</span><span>Alterado / Melhorias</span>
+            </div>
+            <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
+              ${item.alterado
+                .map(
+                  texto =>
+                    `<li class="flex items-start gap-1.5"><span class="text-sky-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
+                )
+                .join('')}
+            </ul>
+          </div>
+        `
+          : ''
+
+      const secaoRemovido =
+        item.removido && item.removido.length > 0
+          ? `
+          <div class="space-y-1">
+            <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
+              <span>🗑️</span><span>Removido / Simplificado</span>
+            </div>
+            <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
+              ${item.removido
+                .map(
+                  texto =>
+                    `<li class="flex items-start gap-1.5"><span class="text-rose-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
+                )
+                .join('')}
+            </ul>
+          </div>
+        `
+          : ''
+
+      return `
+        <div class="p-3.5 rounded-2xl border ${
+          ehNovaVersaoServidor
+            ? 'border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/15 ring-1 ring-amber-500/30 shadow-md'
+            : ehVersaoAtualInstalada
+            ? 'border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-500/10'
+            : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40'
+        } space-y-2.5">
+          <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              ${badgeVersao}
+              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">${escaparHTML(item.data)}</span>
+            </div>
+          </div>
+          <h4 class="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+            ${escaparHTML(item.titulo)}
+          </h4>
+          <div class="space-y-2 pt-1">
+            ${secaoAdicionado}
+            ${secaoAlterado}
+            ${secaoRemovido}
+          </div>
         </div>
       `
-        : ''
+    })
+    .join('')
 
-    const secaoAlterado =
-      item.alterado && item.alterado.length > 0
-        ? `
-        <div class="space-y-1">
-          <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
-            <span>🔄</span><span>Alterado / Melhorias</span>
-          </div>
-          <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
-            ${item.alterado
-              .map(
-                texto =>
-                  `<li class="flex items-start gap-1.5"><span class="text-sky-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
-              )
-              .join('')}
-          </ul>
-        </div>
-      `
-        : ''
-
-    const secaoRemovido =
-      item.removido && item.removido.length > 0
-        ? `
-        <div class="space-y-1">
-          <div class="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
-            <span>🗑️</span><span>Removido / Simplificado</span>
-          </div>
-          <ul class="space-y-1 text-xs text-slate-700 dark:text-slate-300 pl-2">
-            ${item.removido
-              .map(
-                texto =>
-                  `<li class="flex items-start gap-1.5"><span class="text-rose-500 shrink-0 font-bold">•</span><span>${escaparHTML(texto)}</span></li>`
-              )
-              .join('')}
-          </ul>
-        </div>
-      `
-        : ''
-
-    return `
-      <div class="p-3.5 rounded-2xl border ${
-        ehMaisRecente
-          ? 'border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-500/10'
-          : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40'
-      } space-y-2.5">
-        <div class="flex items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-700/60 pb-2">
-          <div class="flex items-center gap-2">
-            ${badgeVersao}
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">${escaparHTML(item.data)}</span>
-          </div>
-        </div>
-        <h4 class="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
-          ${escaparHTML(item.titulo)}
-        </h4>
-        <div class="space-y-2 pt-1">
-          ${secaoAdicionado}
-          ${secaoAlterado}
-          ${secaoRemovido}
-        </div>
-      </div>
-    `
-  }).join('')
+  const subtituloModal = temNovaVersaoServidor
+    ? `Versão nesta aba: <strong class="text-emerald-600 dark:text-emerald-400 font-black">v${__BUILD_VERSION__}</strong> • <strong class="text-amber-500 font-extrabold">Nova versão disponível: v${escaparHTML(versaoServidorNum!)}</strong>`
+    : `Versão instalada: <strong class="text-emerald-600 dark:text-emerald-400 font-black">v${__BUILD_VERSION__}</strong> • Histórico de novidades e melhorias.`
 
   const overlay = criarOverlay(`
     <div class="space-y-4">
@@ -194,7 +240,7 @@ export function abrirModalChangelog(): void {
               Atualizações do NatFlow
             </h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Versão instalada: <strong class="text-emerald-600 dark:text-emerald-400 font-black">v${__BUILD_VERSION__}</strong> • Histórico de novidades e melhorias.
+              ${subtituloModal}
             </p>
           </div>
         </div>
@@ -223,6 +269,13 @@ export function abrirModalChangelog(): void {
   const fechar = (): void => overlay.remove()
   overlay.querySelectorAll('[data-fechar]').forEach(btn => btn.addEventListener('click', fechar))
 
+  overlay.querySelector('#btn-atualizar-pelo-modal')?.addEventListener('click', () => {
+    fechar()
+    if (versaoServidorNum) {
+      recarregarIgnorandoCache(versaoServidorNum)
+    }
+  })
+
   overlay.querySelector('#btn-verificar-att-modal')?.addEventListener('click', () => {
     void verificarAtualizacaoManual()
   })
@@ -241,7 +294,10 @@ export function abrirModalChangelog(): void {
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('natflow:abrir-changelog', () => abrirModalChangelog())
+  window.addEventListener('natflow:abrir-changelog', (e: Event) => {
+    const custom = e as CustomEvent<InfoVersaoPublicada>
+    abrirModalChangelog(custom.detail || null)
+  })
 }
 
 export async function criarHeader(container: HTMLElement, email: string): Promise<void> {

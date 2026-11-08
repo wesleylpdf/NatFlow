@@ -1,4 +1,5 @@
 import { toast } from '@/utils/toast'
+import type { ItemChangelog } from '@/data/changelog'
 
 // Intervalo de verificação em segundo plano: a cada 30 segundos
 const INTERVALO_VERIFICACAO_MS = 30 * 1000
@@ -7,21 +8,31 @@ const CHAVE_VERSAO_ATUALIZADA_FLAG = 'natflow_atualizado_flag'
 const BASE_URL = import.meta.env.BASE_URL || '/'
 const URL_VERSAO = `${BASE_URL}version.json`
 
-interface VersionInfo {
+export interface InfoVersaoPublicada {
   version: string
   builtAt?: string
+  changelog?: ItemChangelog[]
 }
 
 let recarregando = false
 let ultimaVerificacao = 0
 let bannerAtivoEl: HTMLElement | null = null
+let dadosUltimaVersaoPublicada: InfoVersaoPublicada | null = null
 
-export async function buscarVersaoPublicada(): Promise<string | null> {
+export function obterDadosUltimaVersaoPublicada(): InfoVersaoPublicada | null {
+  return dadosUltimaVersaoPublicada
+}
+
+export async function buscarVersaoPublicada(): Promise<InfoVersaoPublicada | null> {
   try {
     const resposta = await fetch(`${URL_VERSAO}?_=${Date.now()}`, { cache: 'no-store' })
     if (!resposta.ok) return null
-    const dados = (await resposta.json()) as VersionInfo
-    return dados.version || null
+    const dados = (await resposta.json()) as InfoVersaoPublicada
+    if (dados && dados.version) {
+      dadosUltimaVersaoPublicada = dados
+      return dados
+    }
+    return null
   } catch {
     // Falha momentânea de rede: tenta na próxima verificação
     return null
@@ -48,7 +59,10 @@ export function recarregarIgnorandoCache(versao: string): void {
 /**
  * Exibe um banner/card destacado de notificação de nova versão no topo da tela.
  */
-export function exibirNotificacaoNovaVersao(novaVersao: string, simular = false): void {
+export function exibirNotificacaoNovaVersao(info: string | InfoVersaoPublicada, simular = false): void {
+  const versaoString = typeof info === 'string' ? info : info.version
+  const infoObj: InfoVersaoPublicada = typeof info === 'string' ? { version: info } : info
+
   if (bannerAtivoEl && document.body.contains(bannerAtivoEl)) {
     bannerAtivoEl.remove()
   }
@@ -67,7 +81,7 @@ export function exibirNotificacaoNovaVersao(novaVersao: string, simular = false)
         <div class="flex items-center justify-between gap-1">
           <h4 class="text-xs sm:text-sm font-black text-white tracking-wide flex items-center gap-1.5">
             <span>Nova Versão do NatFlow</span>
-            <span class="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full font-black">v${novaVersao}</span>
+            <span class="text-[10px] bg-white/25 px-1.5 py-0.5 rounded-full font-black">v${versaoString}</span>
           </h4>
           <button type="button" id="btn-fechar-banner-att" class="text-white/80 hover:text-white text-base leading-none p-1 rounded-lg hover:bg-white/10 transition" title="Fechar">✕</button>
         </div>
@@ -101,14 +115,18 @@ export function exibirNotificacaoNovaVersao(novaVersao: string, simular = false)
       banner.remove()
       bannerAtivoEl = null
     } else {
-      recarregarIgnorandoCache(novaVersao)
+      recarregarIgnorandoCache(versaoString)
     }
   })
 
   banner.querySelector('#btn-ver-novidades-banner')?.addEventListener('click', () => {
     banner.remove()
     bannerAtivoEl = null
-    window.dispatchEvent(new CustomEvent('natflow:abrir-changelog'))
+    window.dispatchEvent(
+      new CustomEvent('natflow:abrir-changelog', {
+        detail: infoObj,
+      })
+    )
   })
 }
 
@@ -124,15 +142,15 @@ export function testarNotificacaoAtualizacao(): void {
  */
 export async function verificarAtualizacaoManual(): Promise<void> {
   toast.info('Buscando atualizações no servidor...', 2000)
-  const versaoPublicada = await buscarVersaoPublicada()
+  const info = await buscarVersaoPublicada()
 
-  if (!versaoPublicada) {
+  if (!info || !info.version) {
     toast.error('Não foi possível verificar a versão agora. Verifique sua conexão.')
     return
   }
 
-  if (versaoPublicada !== __BUILD_VERSION__) {
-    exibirNotificacaoNovaVersao(versaoPublicada)
+  if (info.version !== __BUILD_VERSION__) {
+    exibirNotificacaoNovaVersao(info)
   } else {
     toast.success(`Você já está na versão mais recente (v${__BUILD_VERSION__})!`, 3500)
   }
@@ -148,10 +166,10 @@ export async function verificarAtualizacao(ignorarThrottle = false): Promise<voi
   if (!ignorarThrottle && agora - ultimaVerificacao < 5000) return
   ultimaVerificacao = agora
 
-  const versaoPublicada = await buscarVersaoPublicada()
-  if (!versaoPublicada || versaoPublicada === __BUILD_VERSION__) return
+  const info = await buscarVersaoPublicada()
+  if (!info || !info.version || info.version === __BUILD_VERSION__) return
 
-  exibirNotificacaoNovaVersao(versaoPublicada)
+  exibirNotificacaoNovaVersao(info)
 }
 
 /**
