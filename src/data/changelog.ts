@@ -10,10 +10,20 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.33',
+    data: '08/11/2026',
+    titulo: 'Identificador (ID) do Histórico para Consulta no Banco',
+    destaque: true,
+    adicionado: [
+      'Exibição nítida do ID da tabela "historico" (#ID) em cada item da tela de Histórico de Alterações.',
+      'Clique no ID para copiá-lo instantaneamente para a área de transferência.',
+      'Campo de busca atualizado para permitir pesquisar alterações diretamente pelo número do ID.'
+    ]
+  },
+  {
     versao: 'v1.2.32',
     data: '08/11/2026',
     titulo: 'Limpeza e Otimização do Modal de Atualizações',
-    destaque: true,
     alterado: [
       'Botão "Verificar Atualizações no Servidor" expandido para ocupar toda a largura com layout limpo.'
     ],

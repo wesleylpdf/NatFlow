@@ -1,7 +1,7 @@
 import { listarHistorico } from '@/services/historico'
 import type { HistoricoItem } from '@/types'
 import { escaparHTML, formatarDataHora, formatarMoeda } from '@/utils/format'
-import { mensagemErro } from '@/utils/toast'
+import { toast, mensagemErro } from '@/utils/toast'
 import { cls, erroHTML, loadingHTML } from '@/utils/ui'
 
 /**
@@ -170,7 +170,7 @@ export async function renderHistorico(container: HTMLElement, clienteId?: string
             <input
               id="busca-historico"
               type="text"
-              placeholder="Buscar por cliente, produto ou membro..."
+              placeholder="Buscar por cliente, produto, membro ou ID (#)..."
               class="${cls.input} text-xs font-bold pl-8 py-2 w-full"
             />
           </div>
@@ -206,7 +206,11 @@ export async function renderHistorico(container: HTMLElement, clienteId?: string
       // Filtro de texto (busca)
       if (termo) {
         const dados = item.dados_depois || item.dados_antes || {}
+        const termoSemHash = termo.replace(/^#/, '')
         const textoCompleto = [
+          String(item.id || ''),
+          `#${item.id}`,
+          item.registro_id || '',
           item.cliente_nome || '',
           item.usuario_nome || '',
           item.usuario_email || '',
@@ -218,7 +222,7 @@ export async function renderHistorico(container: HTMLElement, clienteId?: string
           .join(' ')
           .toLowerCase()
 
-        if (!textoCompleto.includes(termo)) {
+        if (!textoCompleto.includes(termo) && !textoCompleto.includes(termoSemHash)) {
           return false
         }
       }
@@ -242,13 +246,22 @@ export async function renderHistorico(container: HTMLElement, clienteId?: string
 
         return `
           <li class="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 sm:p-4 text-xs transition hover:border-slate-300 dark:hover:border-slate-600">
-            <!-- Barra Superior: Ação + Autor + Horário (Sem tags soltas redundantes) -->
+            <!-- Barra Superior: Ação + Autor + ID no Banco + Horário -->
             <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
               <div class="flex items-center gap-2 flex-wrap min-w-0">
                 ${badgeAcao(item.acao)}
                 ${usuario}
               </div>
-              <span class="text-[11px] text-slate-400 font-medium shrink-0">🕒 ${formatarDataHora(item.created_at)}</span>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  data-copiar-id="${item.id}"
+                  class="inline-flex items-center gap-1 text-[10px] font-mono font-black px-1.5 py-0.5 rounded-md bg-slate-200/90 dark:bg-slate-700/90 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-emerald-500/15 hover:text-emerald-700 dark:hover:text-emerald-300 hover:border-emerald-500/30 transition cursor-pointer active:scale-95"
+                  title="ID na tabela 'historico' do banco: #${item.id} (Clique para copiar)">
+                  <span class="text-slate-400 dark:text-slate-400 font-semibold">ID:</span><span>#${item.id}</span>
+                </button>
+                <span class="text-[11px] text-slate-400 font-medium">🕒 ${formatarDataHora(item.created_at)}</span>
+              </div>
             </div>
 
             <!-- Descrição detalhada da alteração com o botão do cliente inserido inline -->
@@ -263,6 +276,20 @@ export async function renderHistorico(container: HTMLElement, clienteId?: string
       })
       .join('')
   }
+
+  listaEl.addEventListener('click', e => {
+    const btnCopiar = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-copiar-id]')
+    if (btnCopiar) {
+      const id = btnCopiar.dataset.copiarId
+      if (id) {
+        void navigator.clipboard?.writeText(id).then(() => {
+          toast.success(`ID #${id} copiado para a área de transferência!`)
+        }).catch(() => {
+          toast.info(`ID da tabela histórico: #${id}`)
+        })
+      }
+    }
+  })
 
   filtroSelect.addEventListener('change', () => {
     filtroTabela = filtroSelect.value
