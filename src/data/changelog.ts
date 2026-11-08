@@ -10,10 +10,21 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.2.45',
+    data: '08/11/2026',
+    titulo: 'Compatibilidade com Node.js 22 e Estabilidade na Integração Contínua (CI)',
+    destaque: true,
+    alterado: [
+      'Atualização do ambiente de Integração Contínua (GitHub Actions CI) para Node.js 22 LTS, eliminando avisos de depreciação do Node 20.',
+      'Suporte nativo a WebSocket habilitado no pipeline de testes e build.',
+      'Camada defensiva de compatibilidade em ambientes headless e de teste para conexão com Supabase.'
+    ]
+  },
+  {
     versao: 'v1.2.44',
     data: '08/11/2026',
     titulo: 'Sincronização Bidirecional e Inteligente na Edição de Pagamentos',
-    destaque: true,
+    destaque: false,
     adicionado: [
       'Janela exclusiva e moderna para edição de pagamentos com cálculo de diferença em tempo real.',
       'Sincronização automática com o Cronograma: se o pagamento for reduzido, a diferença é devolvida para a parcela; se for aumentado, o valor extra é abatido da parcela.',
