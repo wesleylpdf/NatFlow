@@ -10,6 +10,16 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.15',
+    data: '09/11/2026',
+    titulo: 'Padronização Visual de Botões e Remoção do Ícone Redundante no Cronograma',
+    destaque: true,
+    alterado: [
+      'Removido o ícone de círculo (⭕) redundante no início de cada parcela pendente, mantendo o botão "💰 Quitar" como ação única e clara.',
+      'Padronização dos botões de ação das parcelas: os botões de editar (✏️, azul) e excluir (🗑️, vermelho) agora seguem exatamente o mesmo padrão de design arredondado e borda suave do botão de WhatsApp (💬, verde).'
+    ]
+  },
+  {
     versao: 'v1.3.14',
     data: '09/11/2026',
     titulo: 'Simplificação de Formas de Pagamento e Remoção da Barra Visual',

@@ -2301,9 +2301,11 @@ function abrirModalNovoAcerto(): void {
                           : 'bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
                       }">
                         <div class="flex items-center gap-2.5 min-w-0">
-                          <button type="button" ${pago ? `data-alternar-acerto="${a.id}"` : `data-quitar-acerto="${a.id}"`} class="text-base shrink-0 hover:scale-125 transition active:scale-95 cursor-pointer" title="${pago ? 'Clique para reabrir este acerto' : 'Clique para quitar esta parcela'}">
-                            ${pago ? '✅' : '⭕'}
-                          </button>
+                          ${pago ? `
+                            <button type="button" data-alternar-acerto="${a.id}" class="text-base shrink-0 hover:scale-110 transition active:scale-95 cursor-pointer" title="Clique para reabrir este acerto">
+                              ✅
+                            </button>
+                          ` : ''}
                           <div class="min-w-0">
                             <div class="flex items-center gap-1.5 flex-wrap">
                               <span class="text-xs sm:text-sm font-black ${pago ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}">
@@ -2314,7 +2316,7 @@ function abrirModalNovoAcerto(): void {
                             ${a.descricao ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${escaparHTML(a.descricao)}</p>` : ''}
                           </div>
                         </div>
-                        <div class="flex items-center gap-1 shrink-0">
+                        <div class="flex items-center gap-1.5 shrink-0">
                           ${
                             !pago
                               ? `
@@ -2328,8 +2330,12 @@ function abrirModalNovoAcerto(): void {
                               `
                               : ''
                           }
-                          <button data-editar-acerto="${a.id}" class="${cls.btnIcone} text-xs" title="Editar acerto">✏️</button>
-                          <button data-excluir-acerto="${a.id}" class="${cls.btnIcone} text-xs text-rose-500 hover:text-rose-600" title="Excluir acerto">🗑️</button>
+                          <button type="button" data-editar-acerto="${a.id}" class="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-800 dark:text-sky-300 border border-sky-500/30 transition shadow-xs cursor-pointer" title="Editar acerto">
+                            <span class="text-xs">✏️</span>
+                          </button>
+                          <button type="button" data-excluir-acerto="${a.id}" class="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 active:scale-95 text-rose-800 dark:text-rose-300 border border-rose-500/30 transition shadow-xs cursor-pointer" title="Excluir acerto">
+                            <span class="text-xs">🗑️</span>
+                          </button>
                         </div>
                       </div>
                     `
