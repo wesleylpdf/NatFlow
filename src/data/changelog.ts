@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.12',
+    data: '09/11/2026',
+    titulo: 'Topo Compacto com Destaque no Saldo e Busca Inteligente nos Históricos',
+    destaque: true,
+    alterado: [
+      'Painel do Topo Otimizado: as 3 caixas grandes de produtos, pagamentos e saldo foram unificadas em um card compacto com o Saldo Devedor em grande destaque visual e os totais de compras e pagamentos em subtítulos limpos.',
+      'Busca e Ordenação Condicional: a barra de pesquisa e ordenação não é mais exibida para clientes com poucos lançamentos (menos de 5), eliminando poluição visual imediata no celular.',
+      'Busca Retrátil: para clientes com 5 ou mais lançamentos, a ferramenta fica recolhida em um botão discreto "[🔍 Buscar]" no cabeçalho da lista, abrindo apenas quando acionada.'
+    ]
+  },
+  {
     versao: 'v1.3.11',
     data: '09/11/2026',
     titulo: 'Formulários Retráteis e Autocomplete Condicional no Perfil do Cliente',

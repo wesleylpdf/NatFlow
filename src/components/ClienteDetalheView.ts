@@ -170,7 +170,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     const c = cliente!
     const { totalCompras, totalPagamentos, saldoDevedor } = calcularResumo(compras, pagamentos)
     const whats = linkWhatsApp(c.telefone)
-    const rotuloSaldo = saldoDevedor < 0 ? 'Crédito do cliente' : 'Saldo devedor'
+    const rotuloSaldo = saldoDevedor < 0 ? 'Crédito do cliente' : saldoDevedor === 0 ? 'Saldo quitado' : 'Saldo devedor'
     const corSaldo =
       saldoDevedor > 0
         ? 'text-rose-600 dark:text-rose-400'
@@ -263,21 +263,23 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
       ${bannerAtraso}
 
-      <div class="grid grid-cols-3 gap-2.5 sm:gap-3">
-        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-300 uppercase font-extrabold tracking-wide">🛍️ Produtos</span>
-          <span class="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 truncate block">${formatarMoeda(totalCompras)}</span>
+      <div class="bg-slate-50 border border-slate-200/90 dark:bg-white/5 dark:border-white/10 rounded-2xl p-3 sm:px-4 sm:py-3 flex items-center justify-between gap-3 shadow-2xs">
+        <div class="min-w-0">
+          <span class="block text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            📌 ${rotuloSaldo}
+          </span>
+          <span class="text-xl sm:text-2xl font-black ${corSaldo} truncate block leading-tight mt-0.5">
+            ${formatarMoeda(Math.abs(saldoDevedor))}
+          </span>
         </div>
-        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-300 uppercase font-extrabold tracking-wide">💵 Pagamentos</span>
-          <span class="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 truncate block">${formatarMoeda(totalPagamentos)}</span>
+        <div class="text-right shrink-0 flex flex-col justify-center text-[11px] sm:text-xs">
+          <div class="text-slate-500 dark:text-slate-400 font-medium">
+            Total compras: <strong class="text-rose-600 dark:text-rose-400 font-bold">${formatarMoeda(totalCompras)}</strong>
+          </div>
+          <div class="text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+            Total pago: <strong class="text-emerald-600 dark:text-emerald-400 font-bold">${formatarMoeda(totalPagamentos)}</strong>
+          </div>
         </div>
-        <div class="bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl px-3 py-2.5">
-          <span class="block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-300 uppercase font-extrabold tracking-wide">📌 ${rotuloSaldo}</span>
-          <span class="text-base sm:text-lg font-black ${corSaldo} truncate block">${formatarMoeda(Math.abs(saldoDevedor))}</span>
-        </div>
-      </div>
-
       </div>
     `
 
@@ -364,6 +366,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     barraAbas.querySelectorAll<HTMLButtonElement>('[data-aba]').forEach(btn => {
       btn.addEventListener('click', () => {
         abaAtual = btn.dataset.aba as Aba
+        buscaLancamento = ''
         renderAbas()
       })
     })
@@ -439,27 +442,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       </li>`
   }
 
-  function barraBuscaEOrdenacao(): string {
-    return `
-      <div class="flex items-center gap-2 mb-3.5">
-        <div class="flex-1 min-w-0">
-          <input id="busca-item" type="search" class="${cls.input} text-xs py-2"
-            placeholder="🔍 Buscar produto ou valor..."
-            value="${escaparHTML(buscaLancamento)}">
-        </div>
-        <div class="w-36 sm:w-52 shrink-0">
-          <select id="ordem-item" class="${cls.input} text-xs font-semibold py-2">
-            <option value="data-desc" ${ordemLancamento === 'data-desc' ? 'selected' : ''}>📅 Data (Recente)</option>
-            <option value="data-asc" ${ordemLancamento === 'data-asc' ? 'selected' : ''}>📅 Data (Antigo)</option>
-            <option value="valor-desc" ${ordemLancamento === 'valor-desc' ? 'selected' : ''}>💰 Valor (Maior)</option>
-            <option value="valor-asc" ${ordemLancamento === 'valor-asc' ? 'selected' : ''}>💰 Valor (Menor)</option>
-            <option value="criado-desc" ${ordemLancamento === 'criado-desc' ? 'selected' : ''}>🕒 Criado (Recente)</option>
-            <option value="criado-asc" ${ordemLancamento === 'criado-asc' ? 'selected' : ''}>🕒 Criado (Antigo)</option>
-          </select>
-        </div>
-      </div>
-    `
-  }
+
 
   function conectarBuscaEOrdenacao(onFiltrar: () => void): void {
     const inputBusca = abaEl.querySelector<HTMLInputElement>('#busca-item')
@@ -523,17 +506,60 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         </form>
       </div>
 
-      ${barraBuscaEOrdenacao()}
-
       <div class="flex items-center justify-between mb-2">
         <h3 id="contador-compras" class="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400"></h3>
+        ${compras.length >= 5 ? `
+          <button type="button" id="btn-toggle-busca-compras" class="text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 transition cursor-pointer select-none">
+            <span>🔍</span>
+            <span id="txt-toggle-busca-compras">${buscaLancamento ? 'Filtrando...' : 'Buscar'}</span>
+          </button>
+        ` : ''}
       </div>
+
+      ${compras.length >= 5 ? `
+        <div id="container-busca-compras" class="${buscaLancamento ? '' : 'hidden'} flex items-center gap-2 mb-3 animate-fade-in">
+          <div class="flex-1 min-w-0">
+            <input id="busca-item" type="search" class="${cls.input} text-xs py-2"
+              placeholder="🔍 Buscar produto ou valor..."
+              value="${escaparHTML(buscaLancamento)}">
+          </div>
+          <div class="w-36 sm:w-48 shrink-0">
+            <select id="ordem-item" class="${cls.input} text-xs font-semibold py-2">
+              <option value="data-desc" ${ordemLancamento === 'data-desc' ? 'selected' : ''}>📅 Data (Recente)</option>
+              <option value="data-asc" ${ordemLancamento === 'data-asc' ? 'selected' : ''}>📅 Data (Antigo)</option>
+              <option value="valor-desc" ${ordemLancamento === 'valor-desc' ? 'selected' : ''}>💰 Valor (Maior)</option>
+              <option value="valor-asc" ${ordemLancamento === 'valor-asc' ? 'selected' : ''}>💰 Valor (Menor)</option>
+              <option value="criado-desc" ${ordemLancamento === 'criado-desc' ? 'selected' : ''}>🕒 Criado (Recente)</option>
+              <option value="criado-asc" ${ordemLancamento === 'criado-asc' ? 'selected' : ''}>🕒 Criado (Antigo)</option>
+            </select>
+          </div>
+        </div>
+      ` : ''}
 
       <ul id="lista-compras" class="space-y-2"></ul>
     `
 
+    if (compras.length < 5) buscaLancamento = ''
+
     const listaEl = abaEl.querySelector<HTMLElement>('#lista-compras')!
     const contadorEl = abaEl.querySelector<HTMLElement>('#contador-compras')!
+    const btnToggleBusca = abaEl.querySelector<HTMLButtonElement>('#btn-toggle-busca-compras')
+    const boxBusca = abaEl.querySelector<HTMLElement>('#container-busca-compras')
+    const txtToggleBusca = abaEl.querySelector<HTMLElement>('#txt-toggle-busca-compras')
+
+    if (btnToggleBusca && boxBusca) {
+      btnToggleBusca.addEventListener('click', () => {
+        const estaOculto = boxBusca.classList.toggle('hidden')
+        if (estaOculto) {
+          if (txtToggleBusca) txtToggleBusca.textContent = buscaLancamento ? 'Filtrando...' : 'Buscar'
+        } else {
+          if (txtToggleBusca) txtToggleBusca.textContent = 'Fechar'
+          const inputBusca = boxBusca.querySelector<HTMLInputElement>('#busca-item')
+          const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
+          if (!ehMobile && inputBusca) inputBusca.focus()
+        }
+      })
+    }
 
     function atualizarListaCompras(): void {
       const termo = buscaLancamento.trim().toLowerCase()
@@ -944,17 +970,60 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         </form>
       </div>
 
-      ${barraBuscaEOrdenacao()}
-
       <div class="flex items-center justify-between mb-2">
         <h3 id="contador-pagamentos" class="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400"></h3>
+        ${pagamentos.length >= 5 ? `
+          <button type="button" id="btn-toggle-busca-pagamentos" class="text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 py-1 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 transition cursor-pointer select-none">
+            <span>🔍</span>
+            <span id="txt-toggle-busca-pagamentos">${buscaLancamento ? 'Filtrando...' : 'Buscar'}</span>
+          </button>
+        ` : ''}
       </div>
+
+      ${pagamentos.length >= 5 ? `
+        <div id="container-busca-pagamentos" class="${buscaLancamento ? '' : 'hidden'} flex items-center gap-2 mb-3 animate-fade-in">
+          <div class="flex-1 min-w-0">
+            <input id="busca-item" type="search" class="${cls.input} text-xs py-2"
+              placeholder="🔍 Buscar descrição, valor..."
+              value="${escaparHTML(buscaLancamento)}">
+          </div>
+          <div class="w-36 sm:w-48 shrink-0">
+            <select id="ordem-item" class="${cls.input} text-xs font-semibold py-2">
+              <option value="data-desc" ${ordemLancamento === 'data-desc' ? 'selected' : ''}>📅 Data (Recente)</option>
+              <option value="data-asc" ${ordemLancamento === 'data-asc' ? 'selected' : ''}>📅 Data (Antigo)</option>
+              <option value="valor-desc" ${ordemLancamento === 'valor-desc' ? 'selected' : ''}>💰 Valor (Maior)</option>
+              <option value="valor-asc" ${ordemLancamento === 'valor-asc' ? 'selected' : ''}>💰 Valor (Menor)</option>
+              <option value="criado-desc" ${ordemLancamento === 'criado-desc' ? 'selected' : ''}>🕒 Criado (Recente)</option>
+              <option value="criado-asc" ${ordemLancamento === 'criado-asc' ? 'selected' : ''}>🕒 Criado (Antigo)</option>
+            </select>
+          </div>
+        </div>
+      ` : ''}
 
       <ul id="lista-pagamentos" class="space-y-2"></ul>
     `
 
+    if (pagamentos.length < 5) buscaLancamento = ''
+
     const listaEl = abaEl.querySelector<HTMLElement>('#lista-pagamentos')!
     const contadorEl = abaEl.querySelector<HTMLElement>('#contador-pagamentos')!
+    const btnToggleBusca = abaEl.querySelector<HTMLButtonElement>('#btn-toggle-busca-pagamentos')
+    const boxBusca = abaEl.querySelector<HTMLElement>('#container-busca-pagamentos')
+    const txtToggleBusca = abaEl.querySelector<HTMLElement>('#txt-toggle-busca-pagamentos')
+
+    if (btnToggleBusca && boxBusca) {
+      btnToggleBusca.addEventListener('click', () => {
+        const estaOculto = boxBusca.classList.toggle('hidden')
+        if (estaOculto) {
+          if (txtToggleBusca) txtToggleBusca.textContent = buscaLancamento ? 'Filtrando...' : 'Buscar'
+        } else {
+          if (txtToggleBusca) txtToggleBusca.textContent = 'Fechar'
+          const inputBusca = boxBusca.querySelector<HTMLInputElement>('#busca-item')
+          const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
+          if (!ehMobile && inputBusca) inputBusca.focus()
+        }
+      })
+    }
 
     function atualizarListaPagamentos(): void {
       const termo = buscaLancamento.trim().toLowerCase()
