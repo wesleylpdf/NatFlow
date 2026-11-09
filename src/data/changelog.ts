@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.10',
+    data: '09/11/2026',
+    titulo: 'Perfil do Cliente: Cronograma como 3ª Aba Dedicada com Subtítulos Informativos (Opção B)',
+    destaque: true,
+    alterado: [
+      'O Cronograma de Acertos foi migrado do card superior para uma 3ª aba dedicada no perfil do cliente (🛍️ Produtos | 💵 Pagamentos | 🗓️ Cronograma), deixando o card de saldo limpo e compacto.',
+      'Os botões de cada aba agora quebram linha e exibem subtítulos informativos em tamanho pequeno: quantidade de lançamentos e valor total correspondente.',
+      'Na aba Cronograma, o subtítulo informa a quantidade de parcelas pendentes e o valor agendado a receber.'
+    ]
+  },
+  {
     versao: 'v1.3.9',
     data: '09/11/2026',
     titulo: 'Perfil do Cliente: Cronograma de Acertos em Sanfona Retrátil (Opção A)',
