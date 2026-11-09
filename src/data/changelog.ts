@@ -10,6 +10,15 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.13',
+    data: '09/11/2026',
+    titulo: 'Fechamento Automático do Teclado ao Selecionar Sugestão de Produto',
+    destaque: true,
+    alterado: [
+      'Ao tocar em uma sugestão de produto na aba de compras, o teclado virtual do celular agora fecha automaticamente, pois o nome e o valor já são preenchidos por completo, deixando a tela limpa para o botão de lançamento.'
+    ]
+  },
+  {
     versao: 'v1.3.12',
     data: '09/11/2026',
     titulo: 'Topo Compacto com Destaque no Saldo e Busca Inteligente nos Históricos',

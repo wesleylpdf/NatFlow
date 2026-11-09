@@ -727,7 +727,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
           boxAuto.classList.remove('hidden')
 
           boxAuto.querySelectorAll<HTMLButtonElement>('.btn-sugestao').forEach(btn => {
-            btn.addEventListener('mousedown', e => {
+            const selecionar = (e: Event) => {
               e.preventDefault()
               const idx = Number(btn.dataset.idx)
               const item = sugestoes[idx]
@@ -735,14 +735,26 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                 prodInput.value = item.produto
                 valInput.value = valorParaInput(item.valorSugerido)
                 boxAuto.classList.add('hidden')
+                boxAuto.innerHTML = ''
                 atualizarTotaisCarrinho()
+
+                // Fecha o teclado virtual do celular desmarcando o foco de qualquer campo
+                prodInput.blur()
+                valInput.blur()
+                if (document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur()
+                }
+
                 const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
                 if (!ehMobile) {
                   valInput.focus()
                   valInput.select()
                 }
               }
-            })
+            }
+
+            btn.addEventListener('mousedown', selecionar)
+            btn.addEventListener('touchstart', selecionar, { passive: false })
           })
         } catch {
           boxAuto.classList.add('hidden')
