@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.9',
+    data: '09/11/2026',
+    titulo: 'Perfil do Cliente: Cronograma de Acertos em Sanfona Retrátil (Opção A)',
+    destaque: true,
+    alterado: [
+      'O Cronograma de Acertos agora fica recolhido em sanfona retrátil por padrão no perfil do cliente, liberando espaço visual imediato na tela.',
+      'O cabeçalho do acordeão exibe um resumo compacto com quantidade e valor total de parcelas pendentes (ex: 3 pendentes R$ 150,00).',
+      'Ao tocar no cabeçalho, as opções de parcelamento, quitação e ações das parcelas expandem suavemente.'
+    ]
+  },
+  {
     versao: 'v1.3.8',
     data: '09/11/2026',
     titulo: 'Barra Visual de Pagamentos, Atalho de Cobrança e Ranking Top Clientes',

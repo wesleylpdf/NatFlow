@@ -104,6 +104,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
   let acertos: Acerto[] = []
   let perfil: Autorizado | null = null
   let mapaMembros = new Map<string, string>()
+  let acertosAberto = false
 
   try {
     ;[clientes, compras, pagamentos, acertos, perfil, mapaMembros] = await Promise.all([
@@ -288,35 +289,45 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         </div>
       </div>
 
-      <!-- Cronograma de Acertos -->
-      <div class="mt-3.5 pt-3 border-t border-slate-200 dark:border-white/10 space-y-2.5">
-        <!-- Título acima -->
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
-            <span class="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200">🗓️ Cronograma de Acertos</span>
+      <!-- Cronograma de Acertos em Sanfona Retrátil (Opção A) -->
+      <div class="mt-3.5 pt-3 border-t border-slate-200 dark:border-white/10">
+        <!-- Cabeçalho / Botão Toggle da Sanfona -->
+        <button id="btn-toggle-acertos" type="button" class="w-full flex items-center justify-between text-xs sm:text-sm font-black text-slate-800 dark:text-slate-200 group focus:outline-none cursor-pointer py-1 select-none">
+          <div class="flex items-center gap-2 flex-wrap min-w-0">
+            <span>🗓️ Cronograma de Acertos</span>
             ${
               acertosPendentes.length > 0
                 ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-                    ${acertosPendentes.length} pendente${acertosPendentes.length > 1 ? 's' : ''}
+                    ${acertosPendentes.length} pendente${acertosPendentes.length > 1 ? 's' : ''} (${formatarMoeda(totalAgendadoPendente)})
                   </span>`
-                : ''
+                : acertos.length > 0
+                  ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+                      Tudo quitado
+                    </span>`
+                  : `<span class="text-[10px] text-slate-400 font-semibold">Sem acertos</span>`
             }
           </div>
-        </div>
+          <div class="flex items-center gap-1.5 text-xs text-slate-400 group-hover:text-emerald-500 transition-colors shrink-0">
+            <span id="texto-toggle-acertos" class="text-[10px] font-bold hidden sm:inline">${acertosAberto ? 'Recolher' : 'Ver parcelas'}</span>
+            <span id="seta-toggle-acertos" class="text-xs transition-transform">${acertosAberto ? '▲' : '▼'}</span>
+          </div>
+        </button>
 
-        <!-- Botões na mesma linha sem quebrar -->
-        <div class="flex items-center gap-2">
-          ${
-            saldoDevedor > 0
-              ? `<button id="btn-parcelar-saldo" type="button" class="flex-1 inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-extrabold px-2.5 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 transition active:scale-95 whitespace-nowrap" title="Dividir saldo devedor em 2x, 3x ou mais">
-                  ➗ Parcelar Saldo
-                </button>`
-              : ''
-          }
-          <button id="btn-novo-acerto" type="button" class="flex-1 inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-extrabold px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 whitespace-nowrap" title="Adicionar nova data e valor combinado">
-            ➕ Novo Acerto
-          </button>
-        </div>
+        <!-- Corpo Retrátil da Sanfona -->
+        <div id="corpo-acertos" class="${acertosAberto ? '' : 'hidden'} mt-3 space-y-2.5 animate-fade-in">
+          <!-- Botões na mesma linha sem quebrar -->
+          <div class="flex items-center gap-2">
+            ${
+              saldoDevedor > 0
+                ? `<button id="btn-parcelar-saldo" type="button" class="flex-1 inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-extrabold px-2.5 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 transition active:scale-95 whitespace-nowrap" title="Dividir saldo devedor em 2x, 3x ou mais">
+                    ➗ Parcelar Saldo
+                  </button>`
+                : ''
+            }
+            <button id="btn-novo-acerto" type="button" class="flex-1 inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-extrabold px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 whitespace-nowrap" title="Adicionar nova data e valor combinado">
+              ➕ Novo Acerto
+            </button>
+          </div>
 
         ${
           acertos.length === 0
@@ -406,10 +417,12 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
               </div>
             `
         }
+        </div>
       </div>
     `
 
     function abrirModalNovoAcerto(): void {
+      acertosAberto = true
       const { saldoDevedor } = calcularResumo(compras, pagamentos)
       abrirFormModal({
         titulo: 'Novo Acerto Combinado',
@@ -486,6 +499,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     }
 
     function abrirModalParcelamento(): void {
+      acertosAberto = true
       const { saldoDevedor } = calcularResumo(compras, pagamentos)
       const valorSugerido = saldoDevedor > 0 ? saldoDevedor : 0
 
@@ -774,6 +788,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     }
 
     function abrirModalQuitacaoAcerto(acerto: Acerto): void {
+      acertosAberto = true
       const overlay = criarOverlay(`
         <div class="space-y-3.5 max-w-md mx-auto">
           <div class="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2.5">
@@ -926,6 +941,19 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         }
       })
     }
+
+    // Toggle da Sanfona de Acertos (Opção A)
+    const btnToggleAcertos = painelEl.querySelector<HTMLButtonElement>('#btn-toggle-acertos')
+    const corpoAcertos = painelEl.querySelector<HTMLElement>('#corpo-acertos')
+    const setaToggle = painelEl.querySelector<HTMLElement>('#seta-toggle-acertos')
+    const textoToggle = painelEl.querySelector<HTMLElement>('#texto-toggle-acertos')
+
+    btnToggleAcertos?.addEventListener('click', () => {
+      acertosAberto = !acertosAberto
+      corpoAcertos?.classList.toggle('hidden', !acertosAberto)
+      if (setaToggle) setaToggle.textContent = acertosAberto ? '▲' : '▼'
+      if (textoToggle) textoToggle.textContent = acertosAberto ? 'Recolher' : 'Ver parcelas'
+    })
 
     painelEl.querySelector('#btn-parcelar-saldo')?.addEventListener('click', abrirModalParcelamento)
     painelEl.querySelector('#btn-novo-acerto')?.addEventListener('click', abrirModalNovoAcerto)
