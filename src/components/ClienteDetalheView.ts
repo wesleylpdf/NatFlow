@@ -486,29 +486,42 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
   // ---------- Aba: Produtos comprados (saídas) com Autocomplete e Carrinho Rápido ----------
   function renderAbaCompras(): void {
     abaEl.innerHTML = `
-      <form id="form-compra" novalidate class="mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 space-y-2.5">
-        <div id="container-itens-compra" class="space-y-2"></div>
+      <div class="mb-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 overflow-hidden shadow-xs">
+        <button type="button" id="btn-toggle-form-compra" class="w-full flex items-center justify-between px-3.5 py-2.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800/70 cursor-pointer select-none">
+          <span class="flex items-center gap-2">
+            <span class="text-rose-500 text-sm">🛍️</span>
+            <span class="text-xs font-black text-slate-700 dark:text-slate-200">Lançar Novo Produto</span>
+          </span>
+          <span id="badge-toggle-compra" class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+            <span id="txt-toggle-compra">➕ Abrir</span>
+            <span id="icone-toggle-compra" class="text-[10px] transition-transform">▼</span>
+          </span>
+        </button>
 
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-700/60">
-          <button type="button" id="btn-adicionar-produto" class="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition py-1.5 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 w-fit">
-            <span>➕ Adicionar outro produto</span>
-          </button>
-          <div class="flex items-center gap-2">
-            <label class="${cls.label} whitespace-nowrap mb-0" for="compra-data">Data:</label>
-            <input id="compra-data" type="date" class="${cls.input} text-xs py-1.5 w-auto font-semibold" value="${hojeISO()}">
-          </div>
-        </div>
+        <form id="form-compra" novalidate class="hidden p-3 border-t border-slate-200/80 dark:border-slate-700/60 space-y-2.5">
+          <div id="container-itens-compra" class="space-y-2"></div>
 
-        <div class="flex items-center justify-between gap-3 pt-1">
-          <div id="resumo-carrinho" class="text-xs font-extrabold text-slate-700 dark:text-slate-300">
-            Total: <span id="carrinho-total" class="text-rose-600 dark:text-rose-400 font-black text-sm">R$ 0,00</span>
-            <span id="carrinho-qtd" class="text-[11px] text-slate-400 font-normal ml-1">(1 item)</span>
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-700/60">
+            <button type="button" id="btn-adicionar-produto" class="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition py-1.5 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 w-fit">
+              <span>➕ Adicionar outro produto</span>
+            </button>
+            <div class="flex items-center gap-2">
+              <label class="${cls.label} whitespace-nowrap mb-0" for="compra-data">Data:</label>
+              <input id="compra-data" type="date" class="${cls.input} text-xs py-1.5 w-auto font-semibold" value="${hojeISO()}">
+            </div>
           </div>
-          <button type="submit" id="btn-submit-compra" class="${cls.btnPrimario} text-xs py-2.5 px-4 font-black">
-            Lançar Produto
-          </button>
-        </div>
-      </form>
+
+          <div class="flex items-center justify-between gap-3 pt-1">
+            <div id="resumo-carrinho" class="text-xs font-extrabold text-slate-700 dark:text-slate-300">
+              Total: <span id="carrinho-total" class="text-rose-600 dark:text-rose-400 font-black text-sm">R$ 0,00</span>
+              <span id="carrinho-qtd" class="text-[11px] text-slate-400 font-normal ml-1">(1 item)</span>
+            </div>
+            <button type="submit" id="btn-submit-compra" class="${cls.btnPrimario} text-xs py-2.5 px-4 font-black">
+              Lançar Produto
+            </button>
+          </div>
+        </form>
+      </div>
 
       ${barraBuscaEOrdenacao()}
 
@@ -566,12 +579,31 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     atualizarListaCompras()
 
     const form = abaEl.querySelector<HTMLFormElement>('#form-compra')!
+    const btnToggleCompra = abaEl.querySelector<HTMLButtonElement>('#btn-toggle-form-compra')!
+    const txtToggleCompra = abaEl.querySelector<HTMLElement>('#txt-toggle-compra')!
+    const iconeToggleCompra = abaEl.querySelector<HTMLElement>('#icone-toggle-compra')!
     const containerItens = abaEl.querySelector<HTMLElement>('#container-itens-compra')!
     const btnAdicionar = abaEl.querySelector<HTMLButtonElement>('#btn-adicionar-produto')!
     const dataInput = abaEl.querySelector<HTMLInputElement>('#compra-data')!
     const carrinhoTotalEl = abaEl.querySelector<HTMLElement>('#carrinho-total')!
     const carrinhoQtdEl = abaEl.querySelector<HTMLElement>('#carrinho-qtd')!
     const btnSubmit = abaEl.querySelector<HTMLButtonElement>('#btn-submit-compra')!
+
+    btnToggleCompra?.addEventListener('click', () => {
+      const estaOculto = form.classList.toggle('hidden')
+      if (estaOculto) {
+        txtToggleCompra.textContent = '➕ Abrir'
+        iconeToggleCompra.textContent = '▼'
+      } else {
+        txtToggleCompra.textContent = '✖ Fechar'
+        iconeToggleCompra.textContent = '▲'
+        const primeiroInput = form.querySelector<HTMLInputElement>('.input-produto')
+        const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
+        if (!ehMobile && primeiroInput) {
+          primeiroInput.focus()
+        }
+      }
+    })
 
     let contadorLinha = 0
 
@@ -613,7 +645,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         <div class="col-span-2 sm:col-span-1 relative">
           <label class="${cls.label} text-[10px] mb-1">Produto / Serviço</label>
           <input type="text" class="input-produto ${cls.input} text-xs py-1.5" placeholder="Ex: Creme hidratante, Design..." autocomplete="off" maxlength="160">
-          <div class="box-autocomplete hidden absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-52 overflow-y-auto p-1.5 space-y-1"></div>
+          <div class="box-autocomplete hidden absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-48 overflow-y-auto p-1.5 space-y-1"></div>
         </div>
         <div>
           <label class="${cls.label} text-[10px] mb-1">Valor (R$)</label>
@@ -630,8 +662,15 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       const btnRemover = linha.querySelector<HTMLButtonElement>('.btn-remover-linha')!
 
       async function renderSugestoesLinha(termo: string): Promise<void> {
+        const limpo = termo.trim()
+        if (!limpo) {
+          boxAuto.classList.add('hidden')
+          boxAuto.innerHTML = ''
+          return
+        }
+
         try {
-          const sugestoes = await obterSugestoesCatalogo(termo)
+          const sugestoes = await obterSugestoesCatalogo(limpo)
           if (sugestoes.length === 0) {
             boxAuto.classList.add('hidden')
             boxAuto.innerHTML = ''
@@ -640,7 +679,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
           boxAuto.innerHTML = `
             <div class="px-2 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              💡 Sugestões mais usadas
+              💡 Sugestões encontradas
             </div>
             ${sugestoes
               .map(
@@ -685,11 +724,20 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       }
 
       prodInput.addEventListener('input', () => {
-        renderSugestoesLinha(prodInput.value)
+        const val = prodInput.value.trim()
+        if (val) {
+          renderSugestoesLinha(val)
+        } else {
+          boxAuto.classList.add('hidden')
+          boxAuto.innerHTML = ''
+        }
       })
 
       prodInput.addEventListener('focus', () => {
-        renderSugestoesLinha(prodInput.value)
+        const val = prodInput.value.trim()
+        if (val) {
+          renderSugestoesLinha(val)
+        }
       })
 
       prodInput.addEventListener('blur', () => {
@@ -828,60 +876,73 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       .sort((a, b) => a.data.localeCompare(b.data))
 
     abaEl.innerHTML = `
-      <form id="form-pagamento" novalidate class="grid grid-cols-2 sm:grid-cols-[1.2fr_1.3fr_1.1fr_1.8fr_auto] gap-2.5 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
-        <div>
-          <label class="${cls.label}" for="pagamento-valor">Valor pago (R$)</label>
-          <input id="pagamento-valor" type="text" inputmode="decimal" class="${cls.input}" placeholder="0,00" autocomplete="off">
-        </div>
-        <div>
-          <label class="${cls.label}" for="pagamento-forma">Forma de pgto</label>
-          <select id="pagamento-forma" class="${cls.input} font-semibold">
-            <option value="pix" selected>💠 PIX</option>
-            <option value="dinheiro">💵 Dinheiro</option>
-            <option value="credito">💳 Crédito</option>
-            <option value="debito">💳 Débito</option>
-            <option value="outro">🏷️ Outro</option>
-          </select>
-        </div>
-        <div>
-          <label class="${cls.label}" for="pagamento-data">Data</label>
-          <input id="pagamento-data" type="date" class="${cls.input}" value="${hojeISO()}">
-        </div>
-        <div>
-          <label class="${cls.label}" for="pagamento-descricao">Descrição (opcional)</label>
-          <input id="pagamento-descricao" type="text" class="${cls.input}" placeholder="Ex: Parcela 1..." autocomplete="off" maxlength="200">
-        </div>
-        <div class="col-span-2 sm:col-span-1 flex items-end">
-          <button type="submit" class="${cls.btnPrimario} w-full">Lançar</button>
-        </div>
-        ${
-          saldoDevedor > 0 || acertosPendentes.length > 0
-            ? `
-            <div class="col-span-2 sm:col-span-5 flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
-              <span class="text-[10px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400 shrink-0">Atalhos:</span>
-              ${
-                saldoDevedor > 0
-                  ? `<button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer" title="Preencher com o saldo total">
-                      <span>⚡ Quitar Saldo (${formatarMoeda(saldoDevedor)})</span>
-                    </button>`
-                  : ''
-              }
-              ${acertosPendentes
-                .map(a => {
-                  const titulo = a.descricao || 'Acerto'
-                  return `
-                    <button type="button" data-preencher-acerto-id="${a.id}" data-valor="${a.valor}" data-desc="${escaparHTML(titulo)}" class="btn-atalho-acerto text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer" title="Preencher com ${escaparHTML(titulo)} (${formatarMoeda(a.valor)}) e excluir do Cronograma ao lançar">
-                      <span>🗓️</span>
-                      <span>${escaparHTML(titulo)} (${formatarMoeda(a.valor)})</span>
-                    </button>
-                  `
-                })
-                .join('')}
-            </div>
-            `
-            : ''
-        }
-      </form>
+      <div class="mb-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 overflow-hidden shadow-xs">
+        <button type="button" id="btn-toggle-form-pagamento" class="w-full flex items-center justify-between px-3.5 py-2.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800/70 cursor-pointer select-none">
+          <span class="flex items-center gap-2">
+            <span class="text-emerald-500 text-sm">💰</span>
+            <span class="text-xs font-black text-slate-700 dark:text-slate-200">Lançar Novo Pagamento</span>
+          </span>
+          <span id="badge-toggle-pagamento" class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+            <span id="txt-toggle-pagamento">➕ Abrir</span>
+            <span id="icone-toggle-pagamento" class="text-[10px] transition-transform">▼</span>
+          </span>
+        </button>
+
+        <form id="form-pagamento" novalidate class="hidden grid grid-cols-2 sm:grid-cols-[1.2fr_1.3fr_1.1fr_1.8fr_auto] gap-2.5 p-3 border-t border-slate-200/80 dark:border-slate-700/60">
+          <div>
+            <label class="${cls.label}" for="pagamento-valor">Valor pago (R$)</label>
+            <input id="pagamento-valor" type="text" inputmode="decimal" class="${cls.input}" placeholder="0,00" autocomplete="off">
+          </div>
+          <div>
+            <label class="${cls.label}" for="pagamento-forma">Forma de pgto</label>
+            <select id="pagamento-forma" class="${cls.input} font-semibold">
+              <option value="pix" selected>💠 PIX</option>
+              <option value="dinheiro">💵 Dinheiro</option>
+              <option value="credito">💳 Crédito</option>
+              <option value="debito">💳 Débito</option>
+              <option value="outro">🏷️ Outro</option>
+            </select>
+          </div>
+          <div>
+            <label class="${cls.label}" for="pagamento-data">Data</label>
+            <input id="pagamento-data" type="date" class="${cls.input}" value="${hojeISO()}">
+          </div>
+          <div>
+            <label class="${cls.label}" for="pagamento-descricao">Descrição (opcional)</label>
+            <input id="pagamento-descricao" type="text" class="${cls.input}" placeholder="Ex: Parcela 1..." autocomplete="off" maxlength="200">
+          </div>
+          <div class="col-span-2 sm:col-span-1 flex items-end">
+            <button type="submit" class="${cls.btnPrimario} w-full">Lançar</button>
+          </div>
+          ${
+            saldoDevedor > 0 || acertosPendentes.length > 0
+              ? `
+              <div class="col-span-2 sm:col-span-5 flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
+                <span class="text-[10px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400 shrink-0">Atalhos:</span>
+                ${
+                  saldoDevedor > 0
+                    ? `<button type="button" id="btn-quitar-total" class="text-[11px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer" title="Preencher com o saldo total">
+                        <span>⚡ Quitar Saldo (${formatarMoeda(saldoDevedor)})</span>
+                      </button>`
+                    : ''
+                }
+                ${acertosPendentes
+                  .map(a => {
+                    const titulo = a.descricao || 'Acerto'
+                    return `
+                      <button type="button" data-preencher-acerto-id="${a.id}" data-valor="${a.valor}" data-desc="${escaparHTML(titulo)}" class="btn-atalho-acerto text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 transition active:scale-95 flex items-center gap-1 shrink-0 whitespace-nowrap cursor-pointer" title="Preencher com ${escaparHTML(titulo)} (${formatarMoeda(a.valor)}) e excluir do Cronograma ao lançar">
+                        <span>🗓️</span>
+                        <span>${escaparHTML(titulo)} (${formatarMoeda(a.valor)})</span>
+                      </button>
+                    `
+                  })
+                  .join('')}
+              </div>
+              `
+              : ''
+          }
+        </form>
+      </div>
 
       ${barraBuscaEOrdenacao()}
 
@@ -947,10 +1008,36 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     atualizarListaPagamentos()
 
     const form = abaEl.querySelector<HTMLFormElement>('#form-pagamento')!
+    const btnTogglePagamento = abaEl.querySelector<HTMLButtonElement>('#btn-toggle-form-pagamento')!
+    const txtTogglePagamento = abaEl.querySelector<HTMLElement>('#txt-toggle-pagamento')!
+    const iconeTogglePagamento = abaEl.querySelector<HTMLElement>('#icone-toggle-pagamento')!
     const valorInput = abaEl.querySelector<HTMLInputElement>('#pagamento-valor')!
     const formaSelect = abaEl.querySelector<HTMLSelectElement>('#pagamento-forma')!
     const dataInput = abaEl.querySelector<HTMLInputElement>('#pagamento-data')!
     const descInput = abaEl.querySelector<HTMLInputElement>('#pagamento-descricao')!
+
+    function abrirFormPagamento(): void {
+      if (form.classList.contains('hidden')) {
+        form.classList.remove('hidden')
+        txtTogglePagamento.textContent = '✖ Fechar'
+        iconeTogglePagamento.textContent = '▲'
+      }
+    }
+
+    btnTogglePagamento?.addEventListener('click', () => {
+      const estaOculto = form.classList.toggle('hidden')
+      if (estaOculto) {
+        txtTogglePagamento.textContent = '➕ Abrir'
+        iconeTogglePagamento.textContent = '▼'
+      } else {
+        txtTogglePagamento.textContent = '✖ Fechar'
+        iconeTogglePagamento.textContent = '▲'
+        const ehMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || 'ontouchstart' in window)
+        if (!ehMobile) {
+          valorInput.focus()
+        }
+      }
+    })
 
     let acertoSelecionadoId: string | null = null
 
@@ -960,6 +1047,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
     }
 
     abaEl.querySelector('#btn-quitar-total')?.addEventListener('click', () => {
+      abrirFormPagamento()
       valorInput.value = valorParaInput(saldoDevedor)
       descInput.value = 'Quitação de saldo'
       acertoSelecionadoId = null
@@ -968,6 +1056,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
 
     botoesAcerto.forEach(btn => {
       btn.addEventListener('click', () => {
+        abrirFormPagamento()
         const id = btn.dataset.preencherAcertoId
         const val = btn.dataset.valor
         const desc = btn.dataset.desc

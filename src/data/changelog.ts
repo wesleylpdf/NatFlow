@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.11',
+    data: '09/11/2026',
+    titulo: 'Formulários Retráteis e Autocomplete Condicional no Perfil do Cliente',
+    destaque: true,
+    alterado: [
+      'Os formulários de "Lançar Produto" e "Lançar Pagamento" agora iniciam recolhidos em sanfona retrátil (com botão elegante "➕ Abrir"), permitindo visualizar o histórico de compras e pagamentos imediatamente ao abrir a aba no celular.',
+      'Autocomplete de produtos aprimorado: as sugestões de produtos mais usados não se abrem mais sozinhas ao focar no campo vazio, surgindo apenas conforme a consultora digita as letras do produto/serviço.',
+      'Altura da lista de sugestões otimizada para dispositivos móveis, evitando que ocupe a tela inteira.'
+    ]
+  },
+  {
     versao: 'v1.3.10',
     data: '09/11/2026',
     titulo: 'Perfil do Cliente: Cronograma como 3ª Aba Dedicada com Subtítulos Informativos (Opção B)',
