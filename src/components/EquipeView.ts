@@ -39,20 +39,20 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
   container.innerHTML = `
     <div class="max-w-3xl mx-auto space-y-5">
       <section class="${cls.card} p-4 sm:p-5">
-        <div class="flex items-start justify-between gap-3 mb-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 class="font-black text-base text-slate-900 dark:text-white">🛡️ Equipe & Permissões</h2>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Cada membro pode cadastrar sua própria chave PIX para envio automático nas cobranças.
             </p>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button id="btn-editar-meu-perfil" class="${cls.btnSecundario} text-xs py-2 px-3" title="Editar meu nome e minha chave PIX">
+          <div class="flex items-center gap-2 shrink-0 pt-0.5 sm:pt-0">
+            <button id="btn-editar-meu-perfil" class="${cls.btnSecundario} text-xs py-2 px-3 cursor-pointer" title="Editar meu nome e minha chave PIX">
               🔑 Meu PIX
             </button>
             ${
               souAdmin
-                ? `<button id="btn-novo-membro" class="${cls.btnPrimario} text-xs py-2 px-3.5 shrink-0">+ Autorizar Membro</button>`
+                ? `<button id="btn-novo-membro" class="${cls.btnPrimario} text-xs py-2 px-3.5 shrink-0 cursor-pointer">+ Autorizar Membro</button>`
                 : ''
             }
           </div>

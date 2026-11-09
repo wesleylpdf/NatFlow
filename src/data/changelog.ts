@@ -10,6 +10,15 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.17',
+    data: '09/11/2026',
+    titulo: 'Layout Responsivo dos Botões e Informações na Aba Equipe',
+    destaque: true,
+    alterado: [
+      'O cabeçalho da aba Equipe agora possui layout responsivo: em telas menores de celular, o título e a descrição ocupam a largura total sem quebras desnecessárias, posicionando os botões "Meu PIX" e "Autorizar Membro" logo abaixo da frase explicativa.'
+    ]
+  },
+  {
     versao: 'v1.3.16',
     data: '09/11/2026',
     titulo: 'Padronização Visual Completa de Ações nos Históricos de Produtos e Pagamentos',
