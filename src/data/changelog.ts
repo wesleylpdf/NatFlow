@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.6',
+    data: '09/11/2026',
+    titulo: 'Animação Suave Focada na Borda dos Cards de Clientes',
+    destaque: true,
+    alterado: [
+      'Ajustado o efeito de piscar/pulsar dos cards com acertos para a data de hoje ou vencidos: agora a animação atua exclusivamente no contorno (borda) e no brilho externo.',
+      'O fundo do card permanece estável e agradável aos olhos, eliminando o piscar branco em toda a área do card.',
+      'Suporte completo e balanceado ao tema claro e modo escuro.'
+    ]
+  },
+  {
     versao: 'v1.3.5',
     data: '09/11/2026',
     titulo: 'Efeito Pulsante/Piscante em Cards com Acertos Críticos (Hoje e Vencidos)',

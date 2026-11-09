@@ -155,28 +155,26 @@ body {
   }
 }
 
-/* Animações de piscar alternando entre a cor padrão e branco para acertos vencidos e que vencem hoje */
+/* Animações de piscar exclusivamente na borda para acertos vencidos e que vencem hoje */
 @keyframes piscar-vencida {
   0%, 100% {
-    background-color: #fff1f2; /* rose-50 padrão */
     border-color: #f43f5e; /* rose-500 padrão */
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4);
   }
   50% {
-    background-color: #ffffff; /* branco */
-    border-color: #ffffff; /* branco */
-    box-shadow: 0 0 10px 2px rgba(244, 63, 94, 0.25);
+    border-color: #ffffff; /* borda branca */
+    box-shadow: 0 0 8px 1px rgba(244, 63, 94, 0.35);
   }
 }
 
 @keyframes piscar-hoje {
   0%, 100% {
-    background-color: #fffbeb; /* amber-50 padrão */
     border-color: #f59e0b; /* amber-500 padrão */
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
   }
   50% {
-    background-color: #ffffff; /* branco */
-    border-color: #ffffff; /* branco */
-    box-shadow: 0 0 10px 2px rgba(245, 158, 11, 0.25);
+    border-color: #ffffff; /* borda branca */
+    box-shadow: 0 0 8px 1px rgba(245, 158, 11, 0.35);
   }
 }
 
@@ -188,7 +186,7 @@ body {
   animation: piscar-hoje 1.4s ease-in-out infinite !important;
 }
 
-/* Modo escuro: alternando entre tom padrão e destaque branco translúcido */
+/* Modo escuro: alternando a borda entre tom padrão e borda branca */
 .dark .animate-piscar-vencida {
   animation: piscar-vencida-dark 1.4s ease-in-out infinite !important;
 }
@@ -199,24 +197,22 @@ body {
 
 @keyframes piscar-vencida-dark {
   0%, 100% {
-    background-color: rgba(76, 5, 25, 0.45); /* rose-950/40 */
     border-color: rgba(244, 63, 94, 0.85); /* rose-500 */
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4);
   }
   50% {
-    background-color: rgba(255, 255, 255, 0.2); /* branco */
-    border-color: #ffffff; /* branco */
-    box-shadow: 0 0 12px 2px rgba(255, 255, 255, 0.35);
+    border-color: #ffffff; /* borda branca */
+    box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.4);
   }
 }
 
 @keyframes piscar-hoje-dark {
   0%, 100% {
-    background-color: rgba(69, 26, 3, 0.45); /* amber-950/40 */
     border-color: rgba(245, 158, 11, 0.85); /* amber-500 */
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
   }
   50% {
-    background-color: rgba(255, 255, 255, 0.2); /* branco */
-    border-color: #ffffff; /* branco */
-    box-shadow: 0 0 12px 2px rgba(255, 255, 255, 0.35);
+    border-color: #ffffff; /* borda branca */
+    box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.4);
   }
 }
