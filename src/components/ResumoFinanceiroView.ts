@@ -250,12 +250,19 @@ export async function renderResumoFinanceiro(container: HTMLElement): Promise<vo
       desenhar()
     })
 
-    // Exportar Backup
-    container.querySelector('#btn-exportar-backup')?.addEventListener('click', async () => {
+    // Exportar Backup / Planilha
+    const btnExportar = container.querySelector<HTMLButtonElement>('#btn-exportar-backup')
+    btnExportar?.addEventListener('click', async () => {
+      const textoOriginal = btnExportar.innerHTML
+      btnExportar.disabled = true
+      btnExportar.innerHTML = '<span>⏳ Exportando...</span>'
       try {
         await exportarBackupCompleto()
       } catch (err) {
-        toast.error(mensagemErro(err, 'Erro ao exportar backup'))
+        toast.error(mensagemErro(err, 'Erro ao exportar planilha'))
+      } finally {
+        btnExportar.disabled = false
+        btnExportar.innerHTML = textoOriginal
       }
     })
   }

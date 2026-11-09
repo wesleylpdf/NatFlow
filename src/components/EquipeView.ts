@@ -1,6 +1,5 @@
 import { abrirFormModal, confirmar } from '@/components/Modal'
 import { abrirModalMeuPerfil } from '@/components/Header'
-import { exportarBackupCompleto } from '@/services/backup'
 import {
   adicionarMembro,
   atualizarMembro,
@@ -61,47 +60,12 @@ export async function renderEquipe(container: HTMLElement): Promise<void> {
 
         <ul id="lista-equipe" class="space-y-2 mt-4"></ul>
       </section>
-
-      <!-- Backup Completo dos Dados -->
-      <section class="${cls.card} p-4 sm:p-5">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 class="font-black text-base text-slate-900 dark:text-white flex items-center gap-2">
-              <span>💾 Backup Completo dos Dados</span>
-            </h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-              Exporte uma planilha geral em formato Excel / CSV com todos os clientes, saldos, produtos vendidos e histórico de pagamentos.
-            </p>
-          </div>
-          <button id="btn-exportar-backup" type="button"
-            class="${cls.btnPrimario} text-xs py-2.5 px-4 shrink-0 flex items-center justify-center gap-2 shadow-sm font-black whitespace-nowrap">
-            <span>📥 Baixar Backup (Excel / CSV)</span>
-          </button>
-        </div>
-      </section>
     </div>
   `
 
   const listaEl = container.querySelector<HTMLElement>('#lista-equipe')!
   const btnNovo = container.querySelector<HTMLButtonElement>('#btn-novo-membro')
   const btnMeuPerfil = container.querySelector<HTMLButtonElement>('#btn-editar-meu-perfil')
-  const btnBackup = container.querySelector<HTMLButtonElement>('#btn-exportar-backup')
-
-  if (btnBackup) {
-    btnBackup.addEventListener('click', async () => {
-      const textoOriginal = btnBackup.innerHTML
-      btnBackup.disabled = true
-      btnBackup.innerHTML = '<span>⏳ Gerando Backup...</span>'
-      try {
-        await exportarBackupCompleto()
-      } catch (err) {
-        toast.error(mensagemErro(err, 'Erro ao gerar backup dos dados'))
-      } finally {
-        btnBackup.disabled = false
-        btnBackup.innerHTML = textoOriginal
-      }
-    })
-  }
 
   if (btnMeuPerfil) {
     btnMeuPerfil.addEventListener('click', () => {

@@ -10,6 +10,16 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.7',
+    data: '09/11/2026',
+    titulo: 'Centralização da Exportação de Planilha no Resumo Financeiro',
+    destaque: true,
+    alterado: [
+      'Removido o card redundante de "Backup Completo dos Dados" da aba Equipe & Permissões.',
+      'A exportação completa da planilha (Excel/CSV) com todos os clientes, saldos e históricos agora fica centralizada exclusivamente na aba Resumo Financeiro pelo botão "Exportar Planilha".'
+    ]
+  },
+  {
     versao: 'v1.3.6',
     data: '09/11/2026',
     titulo: 'Animação Suave Focada na Borda dos Cards de Clientes',
