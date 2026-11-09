@@ -111,6 +111,12 @@ export interface ItemCatalogo {
   ultimoUso: string
 }
 
+export interface TopClientePeriodo {
+  clienteId: string
+  totalComprado: number
+  quantidadeCompras: number
+}
+
 export interface ResumoFinanceiro {
   totalRecebido: number
   totalVendido: number
@@ -118,4 +124,5 @@ export interface ResumoFinanceiro {
   porFormaPagamento: Record<string, number>
   quantidadePagamentos: number
   quantidadeVendas: number
+  topClientes?: TopClientePeriodo[]
 }

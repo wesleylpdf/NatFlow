@@ -80,7 +80,21 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
   }
 
   let busca = ''
-  let filtroStatus: FiltroStatus = 'todos'
+  let filtroInicial: FiltroStatus = 'todos'
+  try {
+    const hash = window.location.hash || ''
+    const qIdx = hash.indexOf('?')
+    if (qIdx !== -1) {
+      const params = new URLSearchParams(hash.slice(qIdx))
+      const f = params.get('filtro')
+      if (f === 'antigos' || f === 'devedores' || f === 'promessas' || f === 'em_dia' || f === 'todos') {
+        filtroInicial = f
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao processar filtro da URL:', err)
+  }
+  let filtroStatus: FiltroStatus = filtroInicial
 
   const recarregar = async (): Promise<void> => {
     try {
@@ -127,11 +141,11 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
             </div>
             <div class="w-full sm:w-64 shrink-0">
               <select id="select-filtro-status" class="${cls.input} text-xs font-bold py-2 bg-slate-50 dark:bg-slate-800 cursor-pointer" aria-label="Filtrar clientes por status">
-                <option value="todos">⚪ Todos os Clientes</option>
-                <option value="promessas">⏰ Promessas Hoje / Vencidas</option>
-                <option value="devedores">🔴 Clientes com Débito</option>
-                <option value="antigos">⚠️ Débitos +30 Dias</option>
-                <option value="em_dia">🟢 Clientes em Dia</option>
+                <option value="todos" ${filtroStatus === 'todos' ? 'selected' : ''}>⚪ Todos os Clientes</option>
+                <option value="promessas" ${filtroStatus === 'promessas' ? 'selected' : ''}>⏰ Promessas Hoje / Vencidas</option>
+                <option value="devedores" ${filtroStatus === 'devedores' ? 'selected' : ''}>🔴 Clientes com Débito</option>
+                <option value="antigos" ${filtroStatus === 'antigos' ? 'selected' : ''}>⚠️ Débitos +30 Dias</option>
+                <option value="em_dia" ${filtroStatus === 'em_dia' ? 'selected' : ''}>🟢 Clientes em Dia</option>
               </select>
             </div>
           </div>

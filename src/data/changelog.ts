@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.8',
+    data: '09/11/2026',
+    titulo: 'Barra Visual de Pagamentos, Atalho de Cobrança e Ranking Top Clientes',
+    destaque: true,
+    adicionado: [
+      'Barra visual de porcentagem empilhada e colorida das formas de pagamento (PIX, Dinheiro, Cartão e Outros) no Resumo Financeiro.',
+      'Atalho com 1 toque no card "A Receber": abre a aba Clientes já com o filtro de clientes inadimplentes (+30 dias) ativado para cobrança rápida.',
+      'Nova seção "Top Clientes do Período": ranking das clientes que mais compraram no mês com botão direto para envio de agradecimento VIP no WhatsApp.'
+    ]
+  },
+  {
     versao: 'v1.3.7',
     data: '09/11/2026',
     titulo: 'Centralização da Exportação de Planilha no Resumo Financeiro',

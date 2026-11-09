@@ -242,12 +242,13 @@ export function formatarAutoriaResumida(
 }
 
 /**
- * Link do WhatsApp para o telefone (assume Brasil, +55)
+ * Link do WhatsApp para o telefone (assume Brasil, +55) com mensagem opcional
  */
-export function linkWhatsApp(telefone: string): string | null {
+export function linkWhatsApp(telefone: string, mensagem?: string): string | null {
   const d = telefone.replace(/\D/g, '')
   if (d.length < 10) return null
-  return `https://api.whatsapp.com/send?phone=55${d}`
+  const textoQuery = mensagem ? `&text=${encodeURIComponent(mensagem)}` : ''
+  return `https://api.whatsapp.com/send?phone=55${d}${textoQuery}`
 }
 
 export interface InfoFormaPagamento {

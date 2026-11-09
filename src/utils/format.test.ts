@@ -56,6 +56,7 @@ describe('formatadores', () => {
 
   it('linkWhatsApp', () => {
     expect(linkWhatsApp('(11) 91234-5678')).toBe('https://api.whatsapp.com/send?phone=5511912345678')
+    expect(linkWhatsApp('(11) 91234-5678', 'Olá!')).toBe('https://api.whatsapp.com/send?phone=5511912345678&text=Ol%C3%A1!')
     expect(linkWhatsApp('123')).toBeNull()
   })
 

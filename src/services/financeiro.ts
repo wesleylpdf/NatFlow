@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import type { ResumoFinanceiro } from '@/types'
+import type { ResumoFinanceiro, TopClientePeriodo } from '@/types'
 
 export interface FiltroPeriodo {
   ano?: number
@@ -28,7 +28,7 @@ export async function obterResumoFinanceiro(filtro: FiltroPeriodo = {}): Promise
   }
 
   // 1. Consulta compras
-  const queryComp = aplicarFiltroData(supabase.from('compras').select('valor, data'))
+  const queryComp = aplicarFiltroData(supabase.from('compras').select('cliente_id, valor, data'))
   const { data: compras, error: errComp } = await queryComp
   if (errComp) {
     console.error('[Financeiro] Erro ao buscar compras:', errComp)
@@ -70,10 +70,30 @@ export async function obterResumoFinanceiro(filtro: FiltroPeriodo = {}): Promise
   const listaComp = (compras || []).map(c => ({
     ...c,
     valor: Number(c.valor) || 0,
+    cliente_id: (c as { cliente_id?: string }).cliente_id,
   }))
 
   const totalRecebido = listaPag.reduce((acc, p) => acc + p.valor, 0)
   const totalVendido = listaComp.reduce((acc, c) => acc + c.valor, 0)
+
+  // Identifica as top clientes com maiores compras no período (até 5 clientes)
+  const mapaTop = new Map<string, { total: number; qtd: number }>()
+  for (const c of listaComp) {
+    if (!c.cliente_id) continue
+    const atual = mapaTop.get(c.cliente_id) || { total: 0, qtd: 0 }
+    atual.total += c.valor
+    atual.qtd += 1
+    mapaTop.set(c.cliente_id, atual)
+  }
+
+  const topClientes: TopClientePeriodo[] = Array.from(mapaTop.entries())
+    .map(([clienteId, { total, qtd }]) => ({
+      clienteId,
+      totalComprado: Math.round(total * 100) / 100,
+      quantidadeCompras: qtd,
+    }))
+    .sort((a, b) => b.totalComprado - a.totalComprado)
+    .slice(0, 5)
 
   const porFormaPagamento: Record<string, number> = {
     pix: 0,
@@ -103,5 +123,6 @@ export async function obterResumoFinanceiro(filtro: FiltroPeriodo = {}): Promise
     porFormaPagamento,
     quantidadePagamentos: listaPag.length,
     quantidadeVendas: listaComp.length,
+    topClientes,
   }
 }
