@@ -242,7 +242,7 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">
             <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white truncate">${escaparHTML(c.nome)}</h2>
-            <button id="btn-editar-cliente" class="${cls.btnIcone}" title="Editar cliente">✏️</button>
+            <button id="btn-editar-cliente" class="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-800 dark:text-sky-300 border border-sky-500/30 transition shadow-xs cursor-pointer" title="Editar cliente"><span class="text-xs">✏️</span></button>
           </div>
           <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
             ${btnCobrarWhatsApp}
@@ -413,7 +413,9 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
       opts.cor === 'rose' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
     const sinal = opts.cor === 'rose' ? '−' : '+'
     const btnRecibo = opts.permiteRecibo
-      ? `<button data-recibo="${opts.id}" class="${cls.btnIcone} text-emerald-600 hover:text-emerald-700 dark:text-emerald-400" title="Enviar comprovante/recibo no WhatsApp">🧾</button>`
+      ? `<button type="button" data-recibo="${opts.id}" class="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 transition shadow-xs cursor-pointer" title="Enviar comprovante/recibo no WhatsApp">
+          <span class="text-xs">🧾</span>
+        </button>`
       : ''
 
     const autor = extrairPrimeiroNome(opts.criado_por, mapaMembros)
@@ -429,11 +431,15 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
             <p class="font-bold text-sm text-slate-900 dark:text-white truncate">${opts.titulo}</p>
             ${opts.badgeExtra ?? ''}
           </div>
-          <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <span class="font-black text-sm ${corValor} whitespace-nowrap">${sinal} ${formatarMoeda(opts.valor)}</span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="font-black text-sm ${corValor} whitespace-nowrap mr-0.5 sm:mr-1">${sinal} ${formatarMoeda(opts.valor)}</span>
             ${btnRecibo}
-            <button data-editar="${opts.id}" class="${cls.btnIcone}" title="Editar">✏️</button>
-            <button data-excluir="${opts.id}" class="${cls.btnIcone}" title="Excluir">🗑️</button>
+            <button type="button" data-editar="${opts.id}" class="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-800 dark:text-sky-300 border border-sky-500/30 transition shadow-xs cursor-pointer" title="Editar">
+              <span class="text-xs">✏️</span>
+            </button>
+            <button type="button" data-excluir="${opts.id}" class="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 active:scale-95 text-rose-800 dark:text-rose-300 border border-rose-500/30 transition shadow-xs cursor-pointer" title="Excluir">
+              <span class="text-xs">🗑️</span>
+            </button>
           </div>
         </div>
         <div class="mt-1 flex items-center text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">

@@ -10,6 +10,15 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.16',
+    data: '09/11/2026',
+    titulo: 'Padronização Visual Completa de Ações nos Históricos de Produtos e Pagamentos',
+    destaque: true,
+    alterado: [
+      'Os botões de recibo (🧾, verde), editar (✏️, azul) e excluir (🗑️, vermelho) das abas de Produtos e Pagamentos agora seguem o padrão visual uniforme com bordas suaves e tamanho ideal para toque no celular.'
+    ]
+  },
+  {
     versao: 'v1.3.15',
     data: '09/11/2026',
     titulo: 'Padronização Visual de Botões e Remoção do Ícone Redundante no Cronograma',
