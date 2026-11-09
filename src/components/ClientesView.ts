@@ -255,11 +255,11 @@ export async function renderClientes(container: HTMLElement): Promise<void> {
 
           if (infoPromessa.status === 'vencida') {
             estiloCard =
-              'border-2 border-rose-500 bg-rose-50/70 hover:bg-rose-100/70 dark:border-rose-500/80 dark:bg-rose-950/40 shadow-sm'
+              'border-2 border-rose-500 bg-rose-50/70 hover:bg-rose-100/70 dark:border-rose-500/80 dark:bg-rose-950/40 shadow-sm animate-piscar-vencida'
             estiloAvatar = 'bg-rose-500 text-white font-black'
           } else if (infoPromessa.status === 'vence_hoje') {
             estiloCard =
-              'border-2 border-amber-500 bg-amber-50/70 hover:bg-amber-100/70 dark:border-amber-500/80 dark:bg-amber-950/40 shadow-sm'
+              'border-2 border-amber-500 bg-amber-50/70 hover:bg-amber-100/70 dark:border-amber-500/80 dark:bg-amber-950/40 shadow-sm animate-piscar-hoje'
             estiloAvatar = 'bg-amber-500 text-slate-950 font-black'
           } else {
             estiloCard =

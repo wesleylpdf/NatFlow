@@ -10,6 +10,16 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.5',
+    data: '09/11/2026',
+    titulo: 'Efeito Pulsante/Piscante em Cards com Acertos Críticos (Hoje e Vencidos)',
+    destaque: true,
+    adicionado: [
+      'Animação de alerta pulsante alternando entre a cor padrão e branco nos cards de clientes com acertos com data vencida (vermelho) ou com data de hoje (âmbar).',
+      'Maior visibilidade para cobranças imediatas diretamente na tela principal sem perder a identidade visual do card.'
+    ]
+  },
+  {
     versao: 'v1.3.4',
     data: '08/11/2026',
     titulo: 'Página Clicável de Pagamento PIX com Cópia com 1 Toque e QR Code',
