@@ -10,6 +10,17 @@ export interface ItemChangelog {
 
 export const CHANGELOG: ItemChangelog[] = [
   {
+    versao: 'v1.3.14',
+    data: '09/11/2026',
+    titulo: 'Simplificação de Formas de Pagamento e Remoção da Barra Visual',
+    destaque: true,
+    alterado: [
+      'Removida a barra visual empilhada de formas de pagamento no Resumo Financeiro para um layout mais enxuto e direto.',
+      'Removida a forma de pagamento "Outro" de todos os formulários e filtros do sistema, mantendo apenas as formas oficiais: PIX, Dinheiro, Cartão de Crédito e Cartão de Débito.',
+      'Grid de entradas por forma de pagamento no Resumo Financeiro readequado para 4 colunas perfeitamente alinhadas.'
+    ]
+  },
+  {
     versao: 'v1.3.13',
     data: '09/11/2026',
     titulo: 'Fechamento Automático do Teclado ao Selecionar Sugestão de Produto',

@@ -100,7 +100,6 @@ export async function obterResumoFinanceiro(filtro: FiltroPeriodo = {}): Promise
     dinheiro: 0,
     credito: 0,
     debito: 0,
-    outro: 0,
   }
 
   for (const p of listaPag) {
@@ -108,7 +107,7 @@ export async function obterResumoFinanceiro(filtro: FiltroPeriodo = {}): Promise
     if (forma in porFormaPagamento) {
       porFormaPagamento[forma] += p.valor
     } else {
-      porFormaPagamento.outro += p.valor
+      porFormaPagamento.pix += p.valor
     }
   }
 

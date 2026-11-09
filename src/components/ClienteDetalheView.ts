@@ -938,7 +938,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
               <option value="dinheiro">💵 Dinheiro</option>
               <option value="credito">💳 Crédito</option>
               <option value="debito">💳 Débito</option>
-              <option value="outro">🏷️ Outro</option>
             </select>
           </div>
           <div>
@@ -1346,7 +1345,6 @@ export async function renderClienteDetalhe(container: HTMLElement, clienteId: st
                     <option value="dinheiro" ${pag.forma_pagamento === 'dinheiro' ? 'selected' : ''}>💵 Dinheiro</option>
                     <option value="credito" ${pag.forma_pagamento === 'credito' ? 'selected' : ''}>💳 Cartão de Crédito</option>
                     <option value="debito" ${pag.forma_pagamento === 'debito' ? 'selected' : ''}>💳 Cartão de Débito</option>
-                    <option value="outro" ${pag.forma_pagamento === 'outro' ? 'selected' : ''}>🏷️ Outro</option>
                   </select>
                 </div>
                 <div>
@@ -2140,7 +2138,6 @@ function abrirModalNovoAcerto(): void {
               <option value="dinheiro">💵 Dinheiro</option>
               <option value="credito">💳 Cartão de Crédito</option>
               <option value="debito">💳 Cartão de Débito</option>
-              <option value="outro">🏷️ Outro</option>
             </select>
           </div>
 

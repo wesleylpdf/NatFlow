@@ -22,7 +22,7 @@ export async function renderResumoFinanceiro(container: HTMLElement): Promise<vo
     totalRecebido: 0,
     totalVendido: 0,
     saldoPeriodo: 0,
-    porFormaPagamento: { pix: 0, dinheiro: 0, credito: 0, debito: 0, outro: 0 },
+    porFormaPagamento: { pix: 0, dinheiro: 0, credito: 0, debito: 0 },
     quantidadePagamentos: 0,
     quantidadeVendas: 0,
     topClientes: [],
@@ -92,13 +92,11 @@ export async function renderResumoFinanceiro(container: HTMLElement): Promise<vo
     const valorDinheiro = resumoFin.porFormaPagamento.dinheiro || 0
     const valorCredito = resumoFin.porFormaPagamento.credito || 0
     const valorDebito = resumoFin.porFormaPagamento.debito || 0
-    const valorOutro = resumoFin.porFormaPagamento.outro || 0
 
     const pctPix = totalRecebido > 0 ? Math.round((valorPix / totalRecebido) * 100) : 0
     const pctDinheiro = totalRecebido > 0 ? Math.round((valorDinheiro / totalRecebido) * 100) : 0
     const pctCredito = totalRecebido > 0 ? Math.round((valorCredito / totalRecebido) * 100) : 0
     const pctDebito = totalRecebido > 0 ? Math.round((valorDebito / totalRecebido) * 100) : 0
-    const pctOutro = totalRecebido > 0 ? Math.max(0, 100 - (pctPix + pctDinheiro + pctCredito + pctDebito)) : 0
 
     // Mapeamento dos Top Clientes com dados de telefone e nome
     const mapaClientes = new Map(todosClientes.map(c => [c.id, c]))
@@ -195,9 +193,9 @@ export async function renderResumoFinanceiro(container: HTMLElement): Promise<vo
             </button>
           </div>
 
-          <!-- Detalhamento de Entradas por Forma de Pagamento + Barra Visual -->
+          <!-- Detalhamento de Entradas por Forma de Pagamento -->
           <div class="bg-slate-50/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 rounded-2xl p-2.5 sm:p-3">
-            <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center justify-between mb-2">
               <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-300">
                 💳 Entradas por Forma de Pagamento
               </span>
@@ -206,31 +204,7 @@ export async function renderResumoFinanceiro(container: HTMLElement): Promise<vo
               </span>
             </div>
 
-            <!-- Barra Visual Proporcional Empilhada -->
-            ${totalRecebido > 0 ? `
-              <div class="space-y-1.5 my-2.5">
-                <div class="w-full bg-slate-200 dark:bg-slate-700/60 rounded-full h-3 flex overflow-hidden shadow-inner" role="progressbar" aria-label="Distribuição de entradas">
-                  ${pctPix > 0 ? `<div class="bg-emerald-500 transition-all duration-300" style="width: ${pctPix}%" title="PIX: ${pctPix}% (${formatarMoeda(valorPix)})"></div>` : ''}
-                  ${pctDinheiro > 0 ? `<div class="bg-amber-500 transition-all duration-300" style="width: ${pctDinheiro}%" title="Dinheiro: ${pctDinheiro}% (${formatarMoeda(valorDinheiro)})"></div>` : ''}
-                  ${pctCredito > 0 ? `<div class="bg-sky-500 transition-all duration-300" style="width: ${pctCredito}%" title="Crédito: ${pctCredito}% (${formatarMoeda(valorCredito)})"></div>` : ''}
-                  ${pctDebito > 0 ? `<div class="bg-indigo-500 transition-all duration-300" style="width: ${pctDebito}%" title="Débito: ${pctDebito}% (${formatarMoeda(valorDebito)})"></div>` : ''}
-                  ${pctOutro > 0 ? `<div class="bg-slate-400 dark:bg-slate-500 transition-all duration-300" style="width: ${pctOutro}%" title="Outro: ${pctOutro}% (${formatarMoeda(valorOutro)})"></div>` : ''}
-                </div>
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-slate-400 font-bold">
-                  ${pctPix > 0 ? `<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>PIX: ${pctPix}%</span>` : ''}
-                  ${pctDinheiro > 0 ? `<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>Dinheiro: ${pctDinheiro}%</span>` : ''}
-                  ${pctCredito > 0 ? `<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-sky-500 inline-block"></span>Crédito: ${pctCredito}%</span>` : ''}
-                  ${pctDebito > 0 ? `<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>Débito: ${pctDebito}%</span>` : ''}
-                  ${pctOutro > 0 ? `<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>Outro: ${pctOutro}%</span>` : ''}
-                </div>
-              </div>
-            ` : `
-              <div class="w-full bg-slate-100 dark:bg-white/5 rounded-full h-2.5 my-2.5 flex items-center justify-center">
-                <span class="text-[9px] text-slate-400 dark:text-slate-500 font-medium">Sem entradas registradas neste período</span>
-              </div>
-            `}
-
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-2">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 flex flex-col justify-between">
                 <div class="flex items-center justify-between">
                   <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold">💠 PIX</span>
@@ -258,13 +232,6 @@ export async function renderResumoFinanceiro(container: HTMLElement): Promise<vo
                   <span class="text-[10px] font-black text-indigo-600 dark:text-indigo-400">${pctDebito}%</span>
                 </div>
                 <span class="text-xs sm:text-sm font-black text-indigo-600 dark:text-indigo-400 block truncate mt-1">${formatarMoeda(valorDebito)}</span>
-              </div>
-              <div class="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 col-span-2 sm:col-span-1 flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold">🏷️ Outro</span>
-                  <span class="text-[10px] font-black text-slate-500 dark:text-slate-400">${pctOutro}%</span>
-                </div>
-                <span class="text-xs sm:text-sm font-black text-slate-600 dark:text-slate-300 block truncate mt-1">${formatarMoeda(valorOutro)}</span>
               </div>
             </div>
           </div>
